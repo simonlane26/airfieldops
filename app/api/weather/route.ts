@@ -165,8 +165,9 @@ export async function GET(request: NextRequest) {
 
   try {
     // Fetch METAR from aviationweather.gov (free, no API key required)
+    // Use hours=12 to capture data from airports that report less frequently
     const metarResponse = await fetch(
-      `https://aviationweather.gov/api/data/metar?ids=${icao}&format=json&hours=2`,
+      `https://aviationweather.gov/api/data/metar?ids=${icao}&format=json&hours=12`,
       { next: { revalidate: 300 } } // Cache for 5 minutes
     );
 
