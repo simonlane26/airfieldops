@@ -16,8 +16,10 @@ import {
   Settings,
   ChevronDown,
   ChevronUp,
-  ArrowLeft
+  ArrowLeft,
+  Globe
 } from 'lucide-react';
+import { RegulatoryRegion, getAllRegulatoryProfiles, DEFAULT_REGULATORY_PROFILE } from '@/lib/regulatory-profiles';
 import { UserPermissions, PERMISSION_LABELS, DEFAULT_PERMISSIONS_BY_ROLE } from '@/lib/types/auth';
 
 interface User {
@@ -38,6 +40,7 @@ interface Airport {
   name: string;
   icaoCode: string;
   isActive: boolean;
+  regulatoryProfile: RegulatoryRegion;
 }
 
 export default function SuperAdminPage() {
@@ -70,7 +73,8 @@ export default function SuperAdminPage() {
     icaoCode: '',
     iataCode: '',
     country: '',
-    timezone: 'UTC'
+    timezone: 'UTC',
+    regulatoryProfile: DEFAULT_REGULATORY_PROFILE as RegulatoryRegion
   });
 
   useEffect(() => {
@@ -252,7 +256,8 @@ export default function SuperAdminPage() {
       icaoCode: '',
       iataCode: '',
       country: '',
-      timezone: 'UTC'
+      timezone: 'UTC',
+      regulatoryProfile: DEFAULT_REGULATORY_PROFILE
     });
     setShowAirportForm(false);
     setEditingAirport(null);
@@ -362,6 +367,27 @@ export default function SuperAdminPage() {
                   onChange={(e) => setAirportForm({ ...airportForm, country: e.target.value })}
                   className="w-full bg-slate-600 text-white px-3 py-2 rounded border border-slate-500"
                 />
+                <div>
+                  <label className="flex items-center gap-2 text-sm text-slate-400 mb-1">
+                    <Globe className="w-4 h-4" />
+                    Regulatory Profile
+                  </label>
+                  <select
+                    value={airportForm.regulatoryProfile}
+                    onChange={(e) => setAirportForm({ ...airportForm, regulatoryProfile: e.target.value as RegulatoryRegion })}
+                    className="w-full bg-slate-600 text-white px-3 py-2 rounded border border-slate-500"
+                    aria-label="Regulatory Profile"
+                  >
+                    {getAllRegulatoryProfiles().map(profile => (
+                      <option key={profile.id} value={profile.id}>
+                        {profile.name} - {profile.description}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Controls terminology, NOTAM format, fire category naming, and compliance references
+                  </p>
+                </div>
                 <button
                   type="submit"
                   className="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-semibold"

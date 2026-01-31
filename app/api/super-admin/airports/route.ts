@@ -19,6 +19,7 @@ export async function GET(req: NextRequest) {
         iata_code as "iataCode",
         country,
         timezone,
+        regulatory_profile as "regulatoryProfile",
         is_active as "isActive",
         created_at as "createdAt"
       FROM airports
@@ -41,7 +42,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { name, icaoCode, iataCode, country, timezone } = body;
+    const { name, icaoCode, iataCode, country, timezone, regulatoryProfile } = body;
 
     // Validate required fields
     if (!name || !icaoCode) {
@@ -66,10 +67,10 @@ export async function POST(req: NextRequest) {
 
     // Create airport
     const newAirports = await query(
-      `INSERT INTO airports (name, icao_code, iata_code, country, timezone)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING id, name, icao_code as "icaoCode", iata_code as "iataCode"`,
-      [name, icaoCode, iataCode || null, country || null, timezone || 'UTC']
+      `INSERT INTO airports (name, icao_code, iata_code, country, timezone, regulatory_profile)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING id, name, icao_code as "icaoCode", iata_code as "iataCode", regulatory_profile as "regulatoryProfile"`,
+      [name, icaoCode, iataCode || null, country || null, timezone || 'UTC', regulatoryProfile || 'ICAO']
     );
 
     return NextResponse.json(newAirports[0], { status: 201 });
