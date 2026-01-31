@@ -94,6 +94,7 @@ export async function getAirportById(airportId: string): Promise<Airport | null>
       iataCode: airport.iata_code,
       country: airport.country,
       timezone: airport.timezone,
+      regulatoryProfile: airport.regulatory_profile || 'ICAO',
       mapConfig: airport.map_config,
       isActive: airport.is_active,
       createdAt: airport.created_at,

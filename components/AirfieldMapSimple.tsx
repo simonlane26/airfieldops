@@ -12,6 +12,7 @@ import NoticeTimeline from './NoticeTimeline';
 import NOTAMDraftAssistant, { generateNOTAMDraft } from './NOTAMDraftAssistant';
 import { UserPermissions, DEFAULT_PERMISSIONS_BY_ROLE, UserRole } from '@/lib/types/auth';
 import WeatherPanel from './WeatherPanel';
+import { RegulatoryRegion, getRegulatoryProfile, getComplianceBanner, getNotamDisclaimer } from '@/lib/regulatory-profiles';
 
 interface AirfieldMapSimpleProps {
   session: any;
@@ -216,7 +217,7 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
-        // Retain notices for 3 years per UK CAA regulations (CAP 562 - continuing airworthiness)
+        // Retain notices for 3 years per aviation authority regulations (UK CAA CAP 562 / FAA AC 150/5200-37 / ICAO Annex 14)
         const threeYearsAgo = new Date();
         threeYearsAgo.setFullYear(threeYearsAgo.getFullYear() - 3);
         setNotices(parsed.filter((n: Notice) => new Date(n.timestamp) >= threeYearsAgo));
@@ -1370,7 +1371,9 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
           <Shield size={20} className="flex-shrink-0" />
           <p className="text-sm">
             <strong>Audit Log Integrity:</strong> All operational events and notices are immutable and append-only.
-            Records are retained for a minimum of 3 years in accordance with UK CAA regulations for continuing airworthiness (CAP 562).
+            {session?.user?.airport?.regulatoryProfile
+              ? ` ${getComplianceBanner(session.user.airport.regulatoryProfile as RegulatoryRegion)}.`
+              : ' Records are retained for a minimum of 3 years in accordance with applicable aviation regulations.'}
           </p>
         </div>
       </div>
@@ -2103,7 +2106,10 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
               )}
 
               {/* Live Weather */}
-              <WeatherPanel icao="EGNR" runwayHeading={40} />
+              <WeatherPanel
+                icao={session?.user?.airport?.icaoCode || 'EGNR'}
+                runwayHeading={40}
+              />
 
               {/* Runway Inspection Panel */}
               <div className="mb-4">

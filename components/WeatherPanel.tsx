@@ -109,9 +109,17 @@ const WeatherPanel: React.FC<WeatherPanelProps> = ({ icao = 'EGNR', runwayHeadin
 
   if (error && !weather) {
     return (
-      <div className="bg-red-900/50 border border-red-600 p-4 rounded-lg mb-4">
-        <p className="text-red-400 text-sm">Weather unavailable: {error}</p>
-        <button onClick={fetchWeather} className="text-xs text-red-300 underline mt-1">Retry</button>
+      <div className="bg-slate-700 border border-slate-600 p-4 rounded-lg mb-4">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-amber-400 text-lg">☁️</span>
+          <span className="text-slate-300 font-semibold">Weather - {icao}</span>
+        </div>
+        <p className="text-slate-400 text-sm">
+          {error === 'No METAR data available'
+            ? 'METAR data not available from public sources for this airport. Contact local MET office for current conditions.'
+            : `Weather unavailable: ${error}`}
+        </p>
+        <button onClick={fetchWeather} className="text-xs text-blue-400 underline mt-2">Retry</button>
       </div>
     );
   }

@@ -132,6 +132,7 @@ export interface Airport {
   iataCode: string | null;
   country: string | null;
   timezone: string;
+  regulatoryProfile: 'UK_EASA' | 'USA_FAA' | 'ICAO';
   mapConfig: any;
   isActive: boolean;
   createdAt: string;
