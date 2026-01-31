@@ -1,0 +1,223 @@
+{
+  "metadata": {
+    "region": "ICAO_UK",
+    "description": "ICAO/UK EASA NOTAM templates per ICAO Annex 15 and UK AIP",
+    "dateFormat": "YYMMDDHHMM",
+    "version": "1.0"
+  },
+
+  "abbreviations": {
+    "closed": "CLSD",
+    "open": "AVBL",
+    "workInProgress": "WIP",
+    "unserviceable": "U/S",
+    "outOfService": "O/S",
+    "limited": "LTD",
+    "runway": "RWY",
+    "taxiway": "TWY",
+    "apron": "APN",
+    "threshold": "THR",
+    "displaced": "DSPLCD",
+    "lighting": "LGT",
+    "approach": "APCH",
+    "departure": "DEP",
+    "precision": "PREC",
+    "nonPrecision": "NON-PREC",
+    "visual": "VIS",
+    "instrument": "INSTR",
+    "available": "AVBL",
+    "unavailable": "UNAVBL",
+    "temporary": "TEMPO",
+    "permanent": "PERM",
+    "hours": "HR",
+    "minutes": "MIN",
+    "until": "TIL",
+    "from": "FM",
+    "to": "TO",
+    "daily": "DLY",
+    "except": "EXC",
+    "saturday": "SAT",
+    "sunday": "SUN",
+    "holiday": "HOL",
+    "sunrise": "SR",
+    "sunset": "SS",
+    "estimated": "EST",
+    "approximately": "APRX",
+    "required": "RQD",
+    "mandatory": "MAND",
+    "prohibited": "PROHIB",
+    "restricted": "RSTD",
+    "caution": "CTN",
+    "warning": "WNG",
+    "danger": "DANGER",
+    "obstacle": "OBST",
+    "crane": "CRANE",
+    "birds": "BIRD",
+    "wildlife": "WILDLIFE",
+    "fog": "FG",
+    "snow": "SN",
+    "ice": "IC",
+    "frost": "FR",
+    "wet": "WET",
+    "water": "WTR",
+    "standing": "STDG",
+    "patches": "PTCHS",
+    "braking": "BA",
+    "good": "GOOD",
+    "medium": "MEDIUM",
+    "poor": "POOR",
+    "nil": "NIL",
+    "firefighting": "RFFS",
+    "reduced": "RED",
+    "category": "CAT",
+    "lowVisibility": "LVP",
+    "procedures": "PROC",
+    "inForce": "IN FORCE",
+    "cancelled": "CNL",
+    "navigation": "NAV",
+    "aid": "AID",
+    "frequency": "FREQ",
+    "communication": "COM",
+    "radar": "RDR",
+    "ils": "ILS",
+    "vor": "VOR",
+    "dme": "DME",
+    "ndb": "NDB",
+    "glideslope": "GP",
+    "localizer": "LOC",
+    "papi": "PAPI",
+    "vasi": "VASI"
+  },
+
+  "templates": {
+    "runwayClosure": {
+      "full": "RWY {runway} CLSD {reason}",
+      "timed": "RWY {runway} CLSD {startTime} TIL {endTime} {reason}",
+      "daily": "RWY {runway} CLSD DLY {startTime}-{endTime} {reason}",
+      "exceptWeekend": "RWY {runway} CLSD DLY EXC SAT SUN {startTime}-{endTime} {reason}"
+    },
+
+    "runwayReopen": {
+      "immediate": "RWY {runway} AVBL",
+      "timed": "RWY {runway} AVBL FM {time}"
+    },
+
+    "runwayReduced": {
+      "length": "RWY {runway} REDUCED TO {length}M AVBL",
+      "width": "RWY {runway} WIDTH REDUCED TO {width}M",
+      "displaced": "RWY {runway} THR DSPLCD {distance}M"
+    },
+
+    "taxiwayClosure": {
+      "full": "TWY {taxiway} CLSD {reason}",
+      "timed": "TWY {taxiway} CLSD {startTime} TIL {endTime} {reason}",
+      "section": "TWY {taxiway} CLSD BTN {pointA} AND {pointB} {reason}"
+    },
+
+    "taxiwayReopen": {
+      "immediate": "TWY {taxiway} AVBL",
+      "timed": "TWY {taxiway} AVBL FM {time}"
+    },
+
+    "apronClosure": {
+      "full": "APN {apron} CLSD {reason}",
+      "partial": "APN {apron} STANDS {stands} CLSD {reason}",
+      "timed": "APN {apron} CLSD {startTime} TIL {endTime} {reason}"
+    },
+
+    "workInProgress": {
+      "runway": "RWY {runway} WIP {description}. {restrictions}",
+      "taxiway": "TWY {taxiway} WIP {description}. {restrictions}",
+      "apron": "APN {apron} WIP {description}. {restrictions}",
+      "general": "WIP {location} {description}. {restrictions}"
+    },
+
+    "surfaceCondition": {
+      "contaminated": "RWY {runway} {contaminant} {coverage}PCT {depth}MM",
+      "friction": "RWY {runway} MEASURED FRICTION COEFFICIENT {value}",
+      "braking": "RWY {runway} BA {action} {value}",
+      "snowtam": "SNOWTAM {number} FOR {icao}"
+    },
+
+    "lighting": {
+      "unserviceable": "RWY {runway} {lightType} LGT U/S",
+      "reduced": "RWY {runway} {lightType} LGT INTENSITY RED",
+      "available": "RWY {runway} {lightType} LGT AVBL"
+    },
+
+    "navaid": {
+      "unserviceable": "{navaid} {ident} U/S",
+      "test": "{navaid} {ident} ON TEST DO NOT USE",
+      "available": "{navaid} {ident} AVBL"
+    },
+
+    "firefighting": {
+      "reduced": "AD RFFS CAT RED FM {category} TO {reducedCategory}",
+      "restored": "AD RFFS CAT {category} RESTORED",
+      "minimum": "AD RFFS BELOW MINIMUM CATEGORY"
+    },
+
+    "lowVisibility": {
+      "inForce": "AD LVP IN FORCE",
+      "cancelled": "AD LVP CNL",
+      "conditions": "AD LOW VIS PROC IN FORCE. VIS {visibility}M RVR {rvr}M"
+    },
+
+    "obstacle": {
+      "temporary": "TEMPO OBST {type} {position} {height}M AGL {lighting}",
+      "crane": "CRANE {position} {height}M AGL {lighting}",
+      "permanent": "NEW OBST {type} {position} {height}M AGL"
+    },
+
+    "wildlife": {
+      "birds": "BIRD ACTIVITY {location} {species}",
+      "general": "WILDLIFE HAZARD {location} {type}"
+    },
+
+    "airspace": {
+      "restricted": "AIRSPACE RSTD {area} {altitude} {reason}",
+      "danger": "DANGER AREA {designator} ACT {times}"
+    },
+
+    "operational": {
+      "ppr": "PPR RQD. TEL {phone}",
+      "hours": "AD HR OF OPS {hours}",
+      "fuelAvailability": "FUEL {type} AVBL/UNAVBL"
+    }
+  },
+
+  "qualifiers": {
+    "scope": {
+      "aerodrome": "A",
+      "enroute": "E",
+      "warning": "W",
+      "checklist": "K"
+    },
+    "purpose": {
+      "immediate": "NBO",
+      "bulletin": "BO",
+      "flight_ops": "M",
+      "misc": "K"
+    },
+    "traffic": {
+      "ifr": "I",
+      "vfr": "V",
+      "both": "IV"
+    }
+  },
+
+  "phrases": {
+    "untilFurtherNotice": "UFN",
+    "untilApproximately": "TIL APRX",
+    "effectiveImmediately": "WEF NOW",
+    "subjectToChange": "SUBJECT TO CHANGE",
+    "furtherInfoAvailable": "FURTHER INFO AVBL FM",
+    "contactAts": "CTC ATS",
+    "pilotsCaution": "PILOTS ARE ADVISED",
+    "essentialMovementsOnly": "ESSENTIAL MOV ONLY",
+    "followMeRequired": "FOLLOW-ME VEH RQD",
+    "atcClearanceRequired": "ATC CLR RQD",
+    "maximumSpeed": "MAX SPD",
+    "noOvertaking": "NO OVERTAKING"
+  }
+}

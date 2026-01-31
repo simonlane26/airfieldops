@@ -1,0 +1,337 @@
+{
+  "metadata": {
+    "region": "FAA_US",
+    "description": "FAA NOTAM templates per AC 150/5200-28G, JO 7930.2, and FAA Contractions",
+    "dateFormat": "YYMMDDHHMM",
+    "references": [
+      "FAA Advisory Circular AC 150/5200-28G",
+      "FAA Order JO 7930.2 - NOTAM Policy",
+      "FAA Order JO 7340.2 - Contractions",
+      "FAA Pilot/Controller Glossary"
+    ],
+    "version": "1.0"
+  },
+
+  "notamTypes": {
+    "D": "Distant - Field condition, airport facilities, navaids",
+    "FDC": "Flight Data Center - Regulatory/airspace, instrument procedures",
+    "GPS": "GPS satellite outages",
+    "POINTER": "Cross-reference to other NOTAMs",
+    "MILITARY": "Military-specific NOTAMs",
+    "SAA": "Special Activity Airspace"
+  },
+
+  "abbreviations": {
+    "closed": "CLSD",
+    "open": "OPEN",
+    "workInProgress": "CONST",
+    "construction": "CONST",
+    "unserviceable": "U/S",
+    "outOfService": "OTS",
+    "limited": "LTD",
+    "runway": "RWY",
+    "taxiway": "TWY",
+    "ramp": "RAMP",
+    "apron": "APRON",
+    "threshold": "THLD",
+    "displaced": "DSPLCD",
+    "lighting": "LGTG",
+    "lights": "LGTS",
+    "approach": "APCH",
+    "departure": "DEP",
+    "precision": "PRECISION",
+    "nonPrecision": "NONPREC",
+    "visual": "VISUAL",
+    "instrument": "INST",
+    "available": "AVBL",
+    "unavailable": "UNAVBL",
+    "temporary": "TEMP",
+    "permanent": "PERM",
+    "hours": "HR",
+    "minutes": "MIN",
+    "until": "TIL",
+    "from": "FM",
+    "to": "TO",
+    "daily": "DLY",
+    "except": "EXC",
+    "saturday": "SAT",
+    "sunday": "SUN",
+    "holiday": "HOL",
+    "sunrise": "SR",
+    "sunset": "SS",
+    "estimated": "EST",
+    "approximately": "APRX",
+    "required": "REQD",
+    "mandatory": "MAND",
+    "prohibited": "PRHBTD",
+    "restricted": "RSTD",
+    "caution": "CAUTION",
+    "warning": "WARNING",
+    "danger": "DANGER",
+    "obstacle": "OBST",
+    "tower": "TWR",
+    "crane": "CRANE",
+    "birds": "BIRDS",
+    "wildlife": "WL",
+    "fog": "FG",
+    "snow": "SN",
+    "ice": "ICE",
+    "frost": "FROST",
+    "wet": "WET",
+    "water": "WTR",
+    "standing": "STANDING",
+    "patches": "PATCHES",
+    "braking": "BA",
+    "good": "GOOD",
+    "fair": "FAIR",
+    "poor": "POOR",
+    "nil": "NIL",
+    "firefighting": "ARFF",
+    "reduced": "REDUCED",
+    "index": "INDEX",
+    "lowVisibility": "SMGCS",
+    "procedures": "PROC",
+    "inEffect": "IN EFFECT",
+    "cancelled": "CNCLD",
+    "navigation": "NAV",
+    "aid": "AID",
+    "frequency": "FREQ",
+    "communication": "COM",
+    "radar": "RADAR",
+    "ils": "ILS",
+    "vor": "VOR",
+    "dme": "DME",
+    "ndb": "NDB",
+    "glideslope": "GS",
+    "localizer": "LOC",
+    "papi": "PAPI",
+    "vasi": "VASI",
+    "mals": "MALS",
+    "malsr": "MALSR",
+    "alsf": "ALSF",
+    "reil": "REIL",
+    "atct": "ATCT",
+    "unicom": "UNICOM",
+    "ctaf": "CTAF",
+    "notam": "NOTAM",
+    "field": "FLD",
+    "condition": "COND",
+    "airport": "ARPT",
+    "aerodrome": "AD"
+  },
+
+  "templates": {
+    "runwayClosure": {
+      "full": "!{fdc} {icao} RWY {runway} CLSD",
+      "timed": "!{fdc} {icao} RWY {runway} CLSD {startTime}-{endTime}",
+      "daily": "!{fdc} {icao} RWY {runway} CLSD DLY {startTime}-{endTime}",
+      "reason": "!{fdc} {icao} RWY {runway} CLSD DUE TO {reason}"
+    },
+
+    "runwayReopen": {
+      "immediate": "!{fdc} {icao} RWY {runway} OPEN",
+      "timed": "!{fdc} {icao} RWY {runway} OPEN EFF {time}"
+    },
+
+    "runwayReduced": {
+      "length": "!{fdc} {icao} RWY {runway} {length}FT AVBL FOR TKOF AND LDG",
+      "width": "!{fdc} {icao} RWY {runway} WIDTH REDUCED TO {width}FT",
+      "displaced": "!{fdc} {icao} RWY {runway} THLD DSPLCD {distance}FT"
+    },
+
+    "taxiwayClosure": {
+      "full": "!{fdc} {icao} TWY {taxiway} CLSD",
+      "timed": "!{fdc} {icao} TWY {taxiway} CLSD {startTime}-{endTime}",
+      "section": "!{fdc} {icao} TWY {taxiway} BTN {pointA} AND {pointB} CLSD",
+      "reason": "!{fdc} {icao} TWY {taxiway} CLSD DUE TO {reason}"
+    },
+
+    "taxiwayReopen": {
+      "immediate": "!{fdc} {icao} TWY {taxiway} OPEN",
+      "timed": "!{fdc} {icao} TWY {taxiway} OPEN EFF {time}"
+    },
+
+    "rampClosure": {
+      "full": "!{fdc} {icao} RAMP {ramp} CLSD",
+      "partial": "!{fdc} {icao} RAMP {ramp} SPOTS {spots} CLSD",
+      "timed": "!{fdc} {icao} RAMP {ramp} CLSD {startTime}-{endTime}",
+      "reason": "!{fdc} {icao} RAMP {ramp} CLSD DUE TO {reason}"
+    },
+
+    "construction": {
+      "runway": "!{fdc} {icao} RWY {runway} CONST {description}",
+      "taxiway": "!{fdc} {icao} TWY {taxiway} CONST {description}",
+      "ramp": "!{fdc} {icao} RAMP {ramp} CONST {description}",
+      "general": "!{fdc} {icao} ARPT CONST {location} {description}",
+      "equipment": "!{fdc} {icao} CONST EQPT {location} {description}"
+    },
+
+    "fieldCondition": {
+      "contaminated": "!{fdc} {icao} RWY {runway} FICON {thirds} {contaminant} {coverage}PCT {depth}IN",
+      "friction": "!{fdc} {icao} RWY {runway} MU {value}",
+      "braking": "!{fdc} {icao} RWY {runway} BA {value}",
+      "snowtam": "!{fdc} {icao} FICON RWY {runway} {condition}"
+    },
+
+    "lighting": {
+      "outOfService": "!{fdc} {icao} RWY {runway} {lightType} LGTS OTS",
+      "unserviceable": "!{fdc} {icao} RWY {runway} {lightType} LGTS U/S",
+      "reduced": "!{fdc} {icao} RWY {runway} {lightType} LGTS REDUCED INTST",
+      "available": "!{fdc} {icao} RWY {runway} {lightType} LGTS OPNL",
+      "papi": "!{fdc} {icao} RWY {runway} PAPI OTS",
+      "reil": "!{fdc} {icao} RWY {runway} REIL OTS",
+      "malsr": "!{fdc} {icao} RWY {runway} MALSR OTS"
+    },
+
+    "navaid": {
+      "outOfService": "!FDC {navaid} {ident} OTS",
+      "unserviceable": "!FDC {navaid} {ident} U/S",
+      "vot": "!FDC {icao} VOR TEST FACILITY OTS",
+      "ils": "!FDC {icao} ILS RWY {runway} OTS",
+      "glideslope": "!FDC {icao} ILS RWY {runway} GS OTS",
+      "localizer": "!FDC {icao} ILS RWY {runway} LOC OTS",
+      "available": "!FDC {navaid} {ident} RETURNED TO SVC"
+    },
+
+    "arff": {
+      "reduced": "!{fdc} {icao} ARPT ARFF INDEX REDUCED FM {index} TO {reducedIndex}",
+      "restored": "!{fdc} {icao} ARPT ARFF INDEX {index} RESTORED",
+      "minimum": "!{fdc} {icao} ARPT ARFF BELOW MIN INDEX",
+      "upgraded": "!{fdc} {icao} ARPT ARFF INDEX {index} UPGRADED"
+    },
+
+    "lowVisibility": {
+      "inEffect": "!{fdc} {icao} ARPT SMGCS IN EFFECT",
+      "cancelled": "!{fdc} {icao} ARPT SMGCS CNCLD",
+      "conditions": "!{fdc} {icao} ARPT LOW VIS TAXI PROC IN EFFECT VIS {visibility}SM RVR {rvr}"
+    },
+
+    "obstacle": {
+      "temporary": "!{fdc} {icao} OBST {type} {position} {height}FT AGL {lighting}",
+      "tower": "!{fdc} {icao} OBST TWR {position} {height}FT MSL ({agl}FT AGL) {lighting}",
+      "crane": "!{fdc} {icao} OBST CRANE {position} {height}FT AGL {lighting}",
+      "permanent": "!{fdc} {icao} OBST {type} ERECTED {position} {height}FT AGL"
+    },
+
+    "wildlife": {
+      "birds": "!{fdc} {icao} ARPT BIRD ACT {location}",
+      "deer": "!{fdc} {icao} ARPT WL DEER VICINITY ARPT",
+      "general": "!{fdc} {icao} ARPT WL HAZARD {location} {type}"
+    },
+
+    "airspace": {
+      "tfrPointer": "!FDC TFR {tfrNumber} SEE FDC NOTAM",
+      "restricted": "!FDC AIRSPACE {area} RSTD {altitude} {reason}",
+      "moa": "!FDC {moa} MOA ACT {times} {altitude}"
+    },
+
+    "operational": {
+      "ppr": "!{fdc} {icao} ARPT PPR REQD. CALL {phone}",
+      "hours": "!{fdc} {icao} ARPT OPS HRS {hours}",
+      "fuel": "!{fdc} {icao} ARPT FUEL {type} NOT AVBL",
+      "services": "!{fdc} {icao} ARPT SVC {service} NOT AVBL",
+      "atct": "!{fdc} {icao} ATCT HRS {hours}",
+      "ctaf": "!{fdc} {icao} CTAF FREQ CHG TO {freq}"
+    },
+
+    "communications": {
+      "frequency": "!{fdc} {icao} COM {facility} FREQ {oldFreq} CHG TO {newFreq}",
+      "outOfService": "!{fdc} {icao} COM {facility} OTS",
+      "temporary": "!{fdc} {icao} COM TEMP {facility} FREQ {freq}"
+    }
+  },
+
+  "ficonCodes": {
+    "surfaceType": {
+      "1": "COMPACTED SNOW",
+      "2": "WET SNOW",
+      "3": "DRY SNOW",
+      "4": "SLUSH",
+      "5": "FROST",
+      "6": "ICE",
+      "7": "WET",
+      "8": "STANDING WATER",
+      "9": "TREATED"
+    },
+    "coverage": {
+      "1": "LESS THAN 10 PERCENT",
+      "2": "10 TO 25 PERCENT",
+      "5": "26 TO 50 PERCENT",
+      "9": "51 TO 100 PERCENT"
+    },
+    "depth": "DEPTH IN INCHES",
+    "brakingAction": {
+      "6": "GOOD",
+      "5": "GOOD TO MEDIUM",
+      "4": "MEDIUM",
+      "3": "MEDIUM TO POOR",
+      "2": "POOR",
+      "1": "NIL"
+    }
+  },
+
+  "qualifiers": {
+    "accountabilityKeywords": [
+      "AD",
+      "APRON",
+      "ARPT",
+      "COM",
+      "NAV",
+      "OBST",
+      "RWY",
+      "SVC",
+      "TWY",
+      "AIRSPACE"
+    ]
+  },
+
+  "phrases": {
+    "untilFurtherNotice": "UFN",
+    "untilApproximately": "TIL APRX",
+    "effectiveImmediately": "EFF IMMED",
+    "permanentChange": "PERM",
+    "temporaryChange": "TEMP",
+    "cancelledNotam": "CNCLD",
+    "replaced": "RPLCD BY",
+    "emergencyOnly": "EMRG USE ONLY",
+    "priorPermission": "PPR",
+    "priorCoordination": "PCD",
+    "noticeTo": "NTC TO",
+    "pilotsCaution": "PILOTS USE CAUTION",
+    "contactTower": "CTC TWR",
+    "contactApproach": "CTC APCH",
+    "seeNotam": "SEE NOTAM",
+    "maximumGrossWeight": "MAX GRS WT",
+    "authorizedPersonnel": "AUTH PERSONNEL ONLY",
+    "militaryOps": "MIL OPS",
+    "civilOps": "CIV OPS"
+  },
+
+  "lightingAbbreviations": {
+    "HIRL": "High Intensity Runway Lights",
+    "MIRL": "Medium Intensity Runway Lights",
+    "LIRL": "Low Intensity Runway Lights",
+    "REIL": "Runway End Identifier Lights",
+    "MALSR": "Medium Intensity Approach Lighting System with RAIL",
+    "MALSF": "Medium Intensity Approach Lighting System with Sequenced Flashers",
+    "ALSF1": "Approach Lighting System with Sequenced Flashers, Config 1",
+    "ALSF2": "Approach Lighting System with Sequenced Flashers, Config 2",
+    "ODALS": "Omnidirectional Approach Lighting System",
+    "PAPI": "Precision Approach Path Indicator",
+    "VASI": "Visual Approach Slope Indicator",
+    "PVASI": "Pulsating Visual Approach Slope Indicator",
+    "PLASI": "Pulse Light Approach Slope Indicator",
+    "RCLS": "Runway Centerline Lighting System",
+    "TDZL": "Touchdown Zone Lights",
+    "THL": "Taxiway Holding Position Lights",
+    "RWSL": "Runway Status Lights"
+  },
+
+  "arffIndexes": {
+    "A": "Aircraft length < 90 feet",
+    "B": "Aircraft length 90-126 feet",
+    "C": "Aircraft length 126-159 feet",
+    "D": "Aircraft length 159-200 feet",
+    "E": "Aircraft length >= 200 feet"
+  }
+}
