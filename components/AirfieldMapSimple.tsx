@@ -595,11 +595,7 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
     setShowSnowPanel(newSnowClosed);
 
     if (newSnowClosed) {
-      const reason = suppliedReason !== undefined
-        ? (suppliedReason || undefined)
-        : (window.prompt(
-            'Reason for activating SNOW/ICE conditions?\n\n(e.g., "Heavy snowfall observed", "Ice formation on taxiways", "Freezing rain reported")'
-          ) || undefined);
+      const reason = suppliedReason || undefined;
 
       // Create operational period for snow event
       const now = new Date();
@@ -615,11 +611,7 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
       // Clear all snow affected areas and restore status
       setSnowAffectedAreas(new Set());
 
-      const reason = suppliedReason !== undefined
-        ? (suppliedReason || undefined)
-        : (window.prompt(
-            'Reason for de-activating SNOW/ICE conditions?\n\n(e.g., "Clearing operations complete", "Weather improved, surfaces clear", "All areas treated and inspected")'
-          ) || undefined);
+      const reason = suppliedReason || undefined;
 
       // Close the active snow event operational period
       const snowPeriod = getActivePeriod('snow-event');
@@ -1096,11 +1088,7 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
       const userRole = session?.user?.jobRole || 'Unknown Role';
       const userIdentity = `${userName} (${userRole})`;
 
-      const reason = suppliedReason !== undefined
-        ? (suppliedReason || undefined)
-        : (window.prompt(
-            'Reason for activating Low Visibility Operations?\n\n(e.g., "RVR below 550m", "Fog reducing visibility", "Visibility < 800m reported")'
-          ) || undefined);
+      const reason = suppliedReason || undefined;
 
       const now = new Date();
       const formattedTime = now.toLocaleDateString('en-GB', {
@@ -1126,11 +1114,7 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
       generateLVPNOTAM(true, lowVisCondition as LVPCondition);
     } else {
       // Deactivating
-      const reason = suppliedReason !== undefined
-        ? (suppliedReason || undefined)
-        : (window.prompt(
-            'Reason for de-activating Low Visibility Operations?\n\n(e.g., "Visibility improved above 800m", "RVR now acceptable", "Fog cleared")'
-          ) || undefined);
+      const reason = suppliedReason || undefined;
 
       // Close the active low visibility operational period
       const lvpPeriod = getActivePeriod('low-visibility-episode');
@@ -1154,11 +1138,7 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
     const userName = session?.user?.name || 'Unknown User';
     const userRole = session?.user?.jobRole || 'Unknown Role';
 
-    const reason = suppliedReason !== undefined
-      ? (suppliedReason || undefined)
-      : (window.prompt(
-          `Reason for changing RFFS Category from ${oldCategory} to ${newCategory}?\n\n(e.g., "Fire tender out of service", "Crew availability reduced", "Normal operations resumed")`
-        ) || undefined);
+    const reason = suppliedReason || undefined;
 
     setRffsCategory(newCategory);
 
