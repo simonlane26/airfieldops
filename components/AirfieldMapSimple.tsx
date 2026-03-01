@@ -133,6 +133,10 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
   const [notamDrafts, setNotamDrafts] = useState<NOTAMDraft[]>([]);
   const [showNOTAMAssistant, setShowNOTAMAssistant] = useState(false);
   const notamRef = useRef<HTMLDivElement>(null);
+  const [pendingLvpActivate, setPendingLvpActivate] = useState<boolean | null>(null);
+  const [pendingLvpReason, setPendingLvpReason] = useState('');
+  const [pendingSnowActivate, setPendingSnowActivate] = useState<boolean | null>(null);
+  const [pendingSnowReason, setPendingSnowReason] = useState('');
 
   // Aerodrome ICAO code - this would come from airport config in production
   const aerodromeIcao = 'EGNR'; // Hawarden
@@ -583,15 +587,17 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
     }
   };
 
-  const toggleSnowClosed = () => {
+  const toggleSnowClosed = (suppliedReason?: string | null) => {
     const newSnowClosed = !snowClosed;
     setSnowClosed(newSnowClosed);
     setShowSnowPanel(newSnowClosed);
 
     if (newSnowClosed) {
-      const reason = window.prompt(
-        'Reason for activating SNOW/ICE conditions?\n\n(e.g., "Heavy snowfall observed", "Ice formation on taxiways", "Freezing rain reported")'
-      ) || undefined;
+      const reason = suppliedReason !== undefined
+        ? (suppliedReason || undefined)
+        : (window.prompt(
+            'Reason for activating SNOW/ICE conditions?\n\n(e.g., "Heavy snowfall observed", "Ice formation on taxiways", "Freezing rain reported")'
+          ) || undefined);
 
       // Create operational period for snow event
       const now = new Date();
@@ -607,9 +613,11 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
       // Clear all snow affected areas and restore status
       setSnowAffectedAreas(new Set());
 
-      const reason = window.prompt(
-        'Reason for de-activating SNOW/ICE conditions?\n\n(e.g., "Clearing operations complete", "Weather improved, surfaces clear", "All areas treated and inspected")'
-      ) || undefined;
+      const reason = suppliedReason !== undefined
+        ? (suppliedReason || undefined)
+        : (window.prompt(
+            'Reason for de-activating SNOW/ICE conditions?\n\n(e.g., "Clearing operations complete", "Weather improved, surfaces clear", "All areas treated and inspected")'
+          ) || undefined);
 
       // Close the active snow event operational period
       const snowPeriod = getActivePeriod('snow-event');
@@ -1077,7 +1085,7 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
     addNOTAMDraft(draft);
   };
 
-  const toggleLowVisibility = () => {
+  const toggleLowVisibility = (suppliedReason?: string | null) => {
     const newLowVis = !lowVisibility;
 
     if (newLowVis) {
@@ -1086,9 +1094,11 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
       const userRole = session?.user?.jobRole || 'Unknown Role';
       const userIdentity = `${userName} (${userRole})`;
 
-      const reason = window.prompt(
-        'Reason for activating Low Visibility Operations?\n\n(e.g., "RVR below 550m", "Fog reducing visibility", "Visibility < 800m reported")'
-      ) || undefined;
+      const reason = suppliedReason !== undefined
+        ? (suppliedReason || undefined)
+        : (window.prompt(
+            'Reason for activating Low Visibility Operations?\n\n(e.g., "RVR below 550m", "Fog reducing visibility", "Visibility < 800m reported")'
+          ) || undefined);
 
       const now = new Date();
       const formattedTime = now.toLocaleDateString('en-GB', {
@@ -1114,9 +1124,11 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
       generateLVPNOTAM(true, lowVisCondition as LVPCondition);
     } else {
       // Deactivating
-      const reason = window.prompt(
-        'Reason for de-activating Low Visibility Operations?\n\n(e.g., "Visibility improved above 800m", "RVR now acceptable", "Fog cleared")'
-      ) || undefined;
+      const reason = suppliedReason !== undefined
+        ? (suppliedReason || undefined)
+        : (window.prompt(
+            'Reason for de-activating Low Visibility Operations?\n\n(e.g., "Visibility improved above 800m", "RVR now acceptable", "Fog cleared")'
+          ) || undefined);
 
       // Close the active low visibility operational period
       const lvpPeriod = getActivePeriod('low-visibility-episode');
@@ -1970,8 +1982,8 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
               {/* Low Visibility Control - requires LVP permission */}
               {canManageLvp ? (
                 <button
-                  onClick={toggleLowVisibility}
-                  className={`w-full p-4 rounded-lg font-bold text-lg mb-4 transition-all ${
+                  onClick={() => setPendingLvpActivate(!lowVisibility)}
+                  className={`w-full p-4 rounded-lg font-bold text-lg mb-2 transition-all ${
                     lowVisibility ? 'bg-red-600 text-white' : 'bg-slate-700 border border-green-700 text-green-400 hover:bg-slate-600'
                   }`}
                 >
@@ -1989,9 +2001,50 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
                 </div>
               )}
 
+              {/* LVP inline confirmation */}
+              {pendingLvpActivate !== null && (
+                <div className="mb-4 bg-slate-600 border border-slate-500 rounded-lg p-3">
+                  <p className="text-sm text-white mb-2">
+                    {'This will '}
+                    <span className={pendingLvpActivate ? 'font-bold text-red-400' : 'font-bold text-green-400'}>
+                      {pendingLvpActivate ? 'ACTIVATE' : 'DE-ACTIVATE'}
+                    </span>
+                    {' Low Visibility Operations'}
+                  </p>
+                  <input
+                    type="text"
+                    value={pendingLvpReason}
+                    onChange={e => setPendingLvpReason(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') { toggleLowVisibility(pendingLvpReason.trim() || null); setPendingLvpActivate(null); setPendingLvpReason(''); }
+                      if (e.key === 'Escape') { setPendingLvpActivate(null); setPendingLvpReason(''); }
+                    }}
+                    placeholder="Reason (optional)"
+                    className="w-full bg-slate-700 text-white text-sm px-3 py-2 rounded mb-2 border border-slate-500 focus:outline-none focus:border-blue-400"
+                    autoFocus
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => { toggleLowVisibility(pendingLvpReason.trim() || null); setPendingLvpActivate(null); setPendingLvpReason(''); }}
+                      className="flex-1 bg-white text-slate-900 text-sm py-1.5 rounded font-semibold hover:bg-slate-100 transition-colors"
+                    >
+                      Confirm
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setPendingLvpActivate(null); setPendingLvpReason(''); }}
+                      className="flex-1 bg-slate-700 text-slate-300 text-sm py-1.5 rounded hover:bg-slate-600 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* LVP Quick Actions */}
               {lowVisibility && canViewNotamDrafts && notamDrafts.some(d => d.type === 'low-visibility') && (
-                <div className="flex gap-2 mb-4 -mt-2">
+                <div className="flex gap-2 mb-4">
                   <button
                     type="button"
                     onClick={openAndScrollToNOTAM}
@@ -2075,8 +2128,8 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
               {/* Snow/Ice Control - requires Snow Areas permission */}
               {canManageSnow ? (
                 <button
-                  onClick={toggleSnowClosed}
-                  className={`w-full p-4 rounded-lg font-bold text-lg mb-6 transition-all ${
+                  onClick={() => setPendingSnowActivate(!snowClosed)}
+                  className={`w-full p-4 rounded-lg font-bold text-lg mb-2 transition-all ${
                     snowClosed ? 'bg-red-600 text-white' : 'bg-slate-700 border border-green-700 text-green-400 hover:bg-slate-600'
                   }`}
                 >
@@ -2092,9 +2145,50 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
                 </div>
               )}
 
-              {/* Snow/Ice Quick Actions */}
-              {snowClosed && (
-                <div className="flex gap-2 mb-4 -mt-4">
+              {/* Snow/Ice inline confirmation */}
+              {pendingSnowActivate !== null && (
+                <div className="mb-4 bg-slate-600 border border-slate-500 rounded-lg p-3">
+                  <p className="text-sm text-white mb-2">
+                    {'This will '}
+                    <span className={pendingSnowActivate ? 'font-bold text-red-400' : 'font-bold text-green-400'}>
+                      {pendingSnowActivate ? 'ACTIVATE' : 'DE-ACTIVATE'}
+                    </span>
+                    {' Snow/Ice conditions'}
+                  </p>
+                  <input
+                    type="text"
+                    value={pendingSnowReason}
+                    onChange={e => setPendingSnowReason(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') { toggleSnowClosed(pendingSnowReason.trim() || null); setPendingSnowActivate(null); setPendingSnowReason(''); }
+                      if (e.key === 'Escape') { setPendingSnowActivate(null); setPendingSnowReason(''); }
+                    }}
+                    placeholder="Reason (optional)"
+                    className="w-full bg-slate-700 text-white text-sm px-3 py-2 rounded mb-2 border border-slate-500 focus:outline-none focus:border-blue-400"
+                    autoFocus
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => { toggleSnowClosed(pendingSnowReason.trim() || null); setPendingSnowActivate(null); setPendingSnowReason(''); }}
+                      className="flex-1 bg-white text-slate-900 text-sm py-1.5 rounded font-semibold hover:bg-slate-100 transition-colors"
+                    >
+                      Confirm
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setPendingSnowActivate(null); setPendingSnowReason(''); }}
+                      className="flex-1 bg-slate-700 text-slate-300 text-sm py-1.5 rounded hover:bg-slate-600 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Snow/Ice Quick Actions - when active */}
+              {snowClosed && pendingSnowActivate === null && (
+                <div className="flex gap-2 mb-4">
                   {canViewNotamDrafts && notamDrafts.some(d => d.type === 'snow-closure') && (
                     <button
                       type="button"
