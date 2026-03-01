@@ -137,6 +137,8 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
   const [pendingLvpReason, setPendingLvpReason] = useState('');
   const [pendingSnowActivate, setPendingSnowActivate] = useState<boolean | null>(null);
   const [pendingSnowReason, setPendingSnowReason] = useState('');
+  const [pendingRffsCategory, setPendingRffsCategory] = useState<'7' | '4' | '0' | null>(null);
+  const [pendingRffsReason, setPendingRffsReason] = useState('');
 
   // Aerodrome ICAO code - this would come from airport config in production
   const aerodromeIcao = 'EGNR'; // Hawarden
@@ -1145,16 +1147,18 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
   };
 
   // Change RFFS Category
-  const changeRffsCategory = (newCategory: '7' | '4' | '0') => {
+  const changeRffsCategory = (newCategory: '7' | '4' | '0', suppliedReason?: string | null) => {
     const oldCategory = rffsCategory;
     if (newCategory === oldCategory) return;
 
     const userName = session?.user?.name || 'Unknown User';
     const userRole = session?.user?.jobRole || 'Unknown Role';
 
-    const reason = window.prompt(
-      `Reason for changing RFFS Category from ${oldCategory} to ${newCategory}?\n\n(e.g., "Fire tender out of service", "Crew availability reduced", "Normal operations resumed")`
-    ) || undefined;
+    const reason = suppliedReason !== undefined
+      ? (suppliedReason || undefined)
+      : (window.prompt(
+          `Reason for changing RFFS Category from ${oldCategory} to ${newCategory}?\n\n(e.g., "Fire tender out of service", "Crew availability reduced", "Normal operations resumed")`
+        ) || undefined);
 
     setRffsCategory(newCategory);
 
@@ -2348,39 +2352,22 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
                     }`}>{rffsCategory}</span>
                   </div>
                   <div className="grid grid-cols-3 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => changeRffsCategory('7')}
-                      className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
-                        rffsCategory === '7'
-                          ? 'bg-green-600 text-white'
-                          : 'bg-slate-600 hover:bg-green-700 text-slate-300'
-                      }`}
-                    >
-                      Cat 7
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => changeRffsCategory('4')}
-                      className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
-                        rffsCategory === '4'
-                          ? 'bg-amber-600 text-white'
-                          : 'bg-slate-600 hover:bg-amber-700 text-slate-300'
-                      }`}
-                    >
-                      Cat 4
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => changeRffsCategory('0')}
-                      className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
-                        rffsCategory === '0'
-                          ? 'bg-red-600 text-white'
-                          : 'bg-slate-600 hover:bg-red-700 text-slate-300'
-                      }`}
-                    >
-                      Cat 0
-                    </button>
+                    {(['7', '4', '0'] as const).map(cat => (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => rffsCategory !== cat && setPendingRffsCategory(cat)}
+                        className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
+                          rffsCategory === cat
+                            ? cat === '7' ? 'bg-green-600 text-white' : cat === '4' ? 'bg-amber-600 text-white' : 'bg-red-600 text-white'
+                            : pendingRffsCategory === cat
+                              ? cat === '7' ? 'bg-green-700 text-white ring-2 ring-white' : cat === '4' ? 'bg-amber-700 text-white ring-2 ring-white' : 'bg-red-700 text-white ring-2 ring-white'
+                              : 'bg-slate-600 hover:bg-slate-500 text-slate-300'
+                        }`}
+                      >
+                        Cat {cat}
+                      </button>
+                    ))}
                   </div>
                   <p className="text-xs text-slate-400 mt-2">
                     {rffsCategory === '7' && 'Full RFFS coverage'}
@@ -2388,6 +2375,52 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
                     {rffsCategory === '0' && 'No RFFS - AERODROME CLOSED'}
                   </p>
                 </div>
+
+                {/* RFFS inline confirmation */}
+                {pendingRffsCategory !== null && (
+                  <div className="mt-2 bg-slate-600 border border-slate-500 rounded-lg p-3">
+                    <p className="text-sm text-white mb-2">
+                      {'Change RFFS Category '}
+                      <span className="font-bold">{rffsCategory}</span>
+                      {' → '}
+                      <span className={
+                        pendingRffsCategory === '0' ? 'font-bold text-red-400' :
+                        pendingRffsCategory === '4' ? 'font-bold text-amber-400' :
+                        'font-bold text-green-400'
+                      }>
+                        {pendingRffsCategory}
+                      </span>
+                    </p>
+                    <input
+                      type="text"
+                      value={pendingRffsReason}
+                      onChange={e => setPendingRffsReason(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') { changeRffsCategory(pendingRffsCategory, pendingRffsReason.trim() || null); setPendingRffsCategory(null); setPendingRffsReason(''); }
+                        if (e.key === 'Escape') { setPendingRffsCategory(null); setPendingRffsReason(''); }
+                      }}
+                      placeholder="Reason (optional)"
+                      className="w-full bg-slate-700 text-white text-sm px-3 py-2 rounded mb-2 border border-slate-500 focus:outline-none focus:border-blue-400"
+                      autoFocus
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => { changeRffsCategory(pendingRffsCategory, pendingRffsReason.trim() || null); setPendingRffsCategory(null); setPendingRffsReason(''); }}
+                        className="flex-1 bg-white text-slate-900 text-sm py-1.5 rounded font-semibold hover:bg-slate-100 transition-colors"
+                      >
+                        Confirm
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setPendingRffsCategory(null); setPendingRffsReason(''); }}
+                        className="flex-1 bg-slate-700 text-slate-300 text-sm py-1.5 rounded hover:bg-slate-600 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {selectedElement && (
