@@ -2318,7 +2318,7 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
                                     elementId: selectedElement.id,
                                     elementType: 'runway',
                                     newStatus: status,
-                                    elementName: 'name' in selectedElement ? selectedElement.name : selectedElement.id,
+                                    elementName: selectedElement.name,
                                     scope: 'single',
                                   })}
                                   className={`px-3 py-2 rounded text-sm transition-colors ${
@@ -2347,7 +2347,7 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
                                               elementId: selectedElement.id,
                                               elementType: 'runway',
                                               newStatus: status,
-                                              elementName: 'name' in selectedElement ? selectedElement.name : selectedElement.id,
+                                              elementName: selectedElement.name,
                                               scope: 'all',
                                               parentId: selectedElement.parentId!,
                                             })}
@@ -2385,7 +2385,7 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
                                     elementId: selectedElement.id,
                                     elementType: 'taxiway',
                                     newStatus: status,
-                                    elementName: 'name' in selectedElement ? selectedElement.name : selectedElement.id,
+                                    elementName: selectedElement.name,
                                     scope: 'single',
                                   })}
                                   className={`px-3 py-2 rounded text-sm transition-colors ${
@@ -2414,7 +2414,7 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
                                               elementId: selectedElement.id,
                                               elementType: 'taxiway',
                                               newStatus: status,
-                                              elementName: 'name' in selectedElement ? selectedElement.name : selectedElement.id,
+                                              elementName: selectedElement.name,
                                               scope: 'all',
                                               parentId: selectedElement.parentId!,
                                             })}
