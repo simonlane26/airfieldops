@@ -97,6 +97,15 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
   const [lowVisActivatedBy, setLowVisActivatedBy] = useState<string>('');
   const [lowVisActivatedTime, setLowVisActivatedTime] = useState<string>('');
   const [selectedElement, setSelectedElement] = useState<Taxiway | Runway | WorkArea | null>(null);
+  const [pendingChange, setPendingChange] = useState<{
+    elementId: string;
+    elementType: 'runway' | 'taxiway';
+    newStatus: 'open' | 'closed' | 'wip';
+    elementName: string;
+    scope: 'single' | 'all';
+    parentId?: string;
+  } | null>(null);
+  const [pendingReason, setPendingReason] = useState('');
   const [isATCView, setIsATCView] = useState(!isViewer);
   const [backgroundImage, setBackgroundImage] = useState<string | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -123,6 +132,7 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
   const [rffsCategory, setRffsCategory] = useState<'7' | '4' | '0'>('7');
   const [notamDrafts, setNotamDrafts] = useState<NOTAMDraft[]>([]);
   const [showNOTAMAssistant, setShowNOTAMAssistant] = useState(false);
+  const notamRef = useRef<HTMLDivElement>(null);
 
   // Aerodrome ICAO code - this would come from airport config in production
   const aerodromeIcao = 'EGNR'; // Hawarden
@@ -143,6 +153,12 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
     runways: [],
     workAreas: []
   });
+
+  // Clear pending status change when the selected element changes
+  useEffect(() => {
+    setPendingChange(null);
+    setPendingReason('');
+  }, [selectedElement?.id]);
 
   // Load diagram data from API on mount
   useEffect(() => {
@@ -418,10 +434,12 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
     }, 3000);
   };
 
-  const toggleTaxiwayStatus = (taxiwayId: string, newStatus: TaxiwayStatus) => {
-    // Prompt for reason if changing to closed or WIP
+  const toggleTaxiwayStatus = (taxiwayId: string, newStatus: TaxiwayStatus, suppliedReason?: string | null) => {
+    // Prompt for reason if changing to closed or WIP — skip if reason was pre-supplied inline
     let reason: string | undefined;
-    if (newStatus === 'closed' || newStatus === 'wip') {
+    if (suppliedReason !== undefined) {
+      reason = suppliedReason || undefined;
+    } else if (newStatus === 'closed' || newStatus === 'wip') {
       const taxiway = airfieldStatus.taxiways.find(t => t.id === taxiwayId);
 
       // CP-specific prompt terminology
@@ -461,15 +479,17 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
   };
 
   // Toggle all sections of a taxiway at once (e.g., all A sections: A1, A2, A3)
-  const toggleAllTaxiwaySections = (parentId: string, newStatus: TaxiwayStatus) => {
+  const toggleAllTaxiwaySections = (parentId: string, newStatus: TaxiwayStatus, suppliedReason?: string | null) => {
     const sectionsToUpdate = airfieldStatus.taxiways.filter(t => t.parentId === parentId);
     if (sectionsToUpdate.length === 0) return;
 
     const taxiwayName = sectionsToUpdate[0].name;
 
-    // Prompt for reason if changing to closed or WIP
+    // Prompt for reason if changing to closed or WIP — skip if reason was pre-supplied inline
     let reason: string | undefined;
-    if (newStatus === 'closed' || newStatus === 'wip') {
+    if (suppliedReason !== undefined) {
+      reason = suppliedReason || undefined;
+    } else if (newStatus === 'closed' || newStatus === 'wip') {
       reason = window.prompt(
         `Reason for ${newStatus === 'closed' ? 'closing' : 'WIP on'} ALL sections of ${taxiwayName}?\n\n(e.g., "Snow clearance vehicle access required", "Surface repair work", "Lighting failure")`
       ) || undefined;
@@ -495,10 +515,12 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
     }
   };
 
-  const toggleRunwayStatus = (runwayId: string, newStatus: 'open' | 'closed' | 'wip') => {
-    // Prompt for reason if changing to closed or WIP
+  const toggleRunwayStatus = (runwayId: string, newStatus: 'open' | 'closed' | 'wip', suppliedReason?: string | null) => {
+    // Prompt for reason if changing to closed or WIP — skip if reason was pre-supplied inline
     let reason: string | undefined;
-    if (newStatus === 'closed' || newStatus === 'wip') {
+    if (suppliedReason !== undefined) {
+      reason = suppliedReason || undefined;
+    } else if (newStatus === 'closed' || newStatus === 'wip') {
       const runway = airfieldStatus.runways.find(r => r.id === runwayId);
       reason = window.prompt(
         `Reason for ${newStatus === 'closed' ? 'closing' : 'WIP on'} ${runway?.name}?\n\n(e.g., "Emergency landing gear inspection", "Surface repair work", "FOD removal")`
@@ -524,15 +546,17 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
   };
 
   // Toggle all sections of a runway at once (e.g., all RWY sections: RWY1, RWY2, RWY3)
-  const toggleAllRunwaySections = (parentId: string, newStatus: 'open' | 'closed' | 'wip') => {
+  const toggleAllRunwaySections = (parentId: string, newStatus: 'open' | 'closed' | 'wip', suppliedReason?: string | null) => {
     const sectionsToUpdate = airfieldStatus.runways.filter(r => r.parentId === parentId);
     if (sectionsToUpdate.length === 0) return;
 
     const runwayName = sectionsToUpdate[0].name;
 
-    // Prompt for reason if changing to closed or WIP
+    // Prompt for reason if changing to closed or WIP — skip if reason was pre-supplied inline
     let reason: string | undefined;
-    if (newStatus === 'closed' || newStatus === 'wip') {
+    if (suppliedReason !== undefined) {
+      reason = suppliedReason || undefined;
+    } else if (newStatus === 'closed' || newStatus === 'wip') {
       reason = window.prompt(
         `Reason for ${newStatus === 'closed' ? 'closing' : 'WIP on'} ENTIRE ${runwayName}?\n\n(e.g., "Emergency landing gear inspection", "Surface repair work", "FOD removal")`
       ) || undefined;
@@ -864,6 +888,31 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
 
       return [notice, ...prev];
     });
+  };
+
+  const applyPendingChange = () => {
+    if (!pendingChange) return;
+    const reason = pendingReason.trim() || null;
+    if (pendingChange.scope === 'all' && pendingChange.parentId) {
+      if (pendingChange.elementType === 'runway') {
+        toggleAllRunwaySections(pendingChange.parentId, pendingChange.newStatus, reason);
+      } else {
+        toggleAllTaxiwaySections(pendingChange.parentId, pendingChange.newStatus as TaxiwayStatus, reason);
+      }
+    } else {
+      if (pendingChange.elementType === 'runway') {
+        toggleRunwayStatus(pendingChange.elementId, pendingChange.newStatus, reason);
+      } else {
+        toggleTaxiwayStatus(pendingChange.elementId, pendingChange.newStatus as TaxiwayStatus, reason);
+      }
+    }
+    setPendingChange(null);
+    setPendingReason('');
+  };
+
+  const openAndScrollToNOTAM = () => {
+    setShowNOTAMAssistant(true);
+    setTimeout(() => notamRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
   };
 
   // NOTAM Draft Helper Functions
@@ -1940,6 +1989,19 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
                 </div>
               )}
 
+              {/* LVP Quick Actions */}
+              {lowVisibility && canViewNotamDrafts && notamDrafts.some(d => d.type === 'low-visibility') && (
+                <div className="flex gap-2 mb-4 -mt-2">
+                  <button
+                    type="button"
+                    onClick={openAndScrollToNOTAM}
+                    className="flex-1 text-sm bg-blue-600/20 hover:bg-blue-600/40 border border-blue-500/50 text-blue-300 px-3 py-2 rounded-lg transition-colors"
+                  >
+                    📋 Review NOTAM Draft
+                  </button>
+                </div>
+              )}
+
               {/* WIP Schedule - requires WIP Schedule permission */}
               {canManageWipSchedule && (
                 <>
@@ -1980,7 +2042,7 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
 
               {/* NOTAM Draft Assistant - requires NOTAM view permission */}
               {canViewNotamDrafts && (
-                <>
+                <div ref={notamRef}>
                   <button
                     onClick={() => setShowNOTAMAssistant(!showNOTAMAssistant)}
                     className={`w-full p-4 rounded-lg font-bold text-lg mb-6 transition-all flex items-center justify-center gap-2 ${
@@ -2007,7 +2069,7 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
                       />
                     </div>
                   )}
-                </>
+                </div>
               )}
 
               {/* Snow/Ice Control - requires Snow Areas permission */}
@@ -2027,6 +2089,30 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
                 } opacity-75`}>
                   ❄️ {snowClosed ? 'SNOW/ICE ACTIVE' : 'SNOW/ICE DE-ACTIVATED'}
                   <span className="block text-xs font-normal mt-1 opacity-75">View only</span>
+                </div>
+              )}
+
+              {/* Snow/Ice Quick Actions */}
+              {snowClosed && (
+                <div className="flex gap-2 mb-4 -mt-4">
+                  {canViewNotamDrafts && notamDrafts.some(d => d.type === 'snow-closure') && (
+                    <button
+                      type="button"
+                      onClick={openAndScrollToNOTAM}
+                      className="flex-1 text-sm bg-blue-600/20 hover:bg-blue-600/40 border border-blue-500/50 text-blue-300 px-3 py-2 rounded-lg transition-colors"
+                    >
+                      📋 Review NOTAM Draft
+                    </button>
+                  )}
+                  {canManageRunways && (
+                    <button
+                      type="button"
+                      onClick={closeAllAreasForSnow}
+                      className="flex-1 text-sm bg-red-600/20 hover:bg-red-600/40 border border-red-500/50 text-red-300 px-3 py-2 rounded-lg transition-colors"
+                    >
+                      🔒 Close All Areas
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -2131,6 +2217,24 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
                     <AlertTriangle size={20} />
                     RCAM Assessment (ICAO)
                   </button>
+
+                  {/* RCAM Quick Actions - appear after submission */}
+                  {rcamAssessments.length > 0 && (
+                    <div className="mt-2 bg-amber-900/20 border border-amber-600/40 rounded-lg p-3">
+                      <p className="text-xs text-amber-300 font-semibold mb-2">
+                        ✓ RCAM: {rcamAssessments[0].runwayName} — {rcamAssessments[0].thirds.first.rwycc}/{rcamAssessments[0].thirds.second.rwycc}/{rcamAssessments[0].thirds.third.rwycc}
+                      </p>
+                      {canViewNotamDrafts && notamDrafts.some(d => d.type === 'runway-contamination') && (
+                        <button
+                          type="button"
+                          onClick={openAndScrollToNOTAM}
+                          className="w-full text-sm bg-blue-600/20 hover:bg-blue-600/40 border border-blue-500/50 text-blue-300 px-3 py-2 rounded-lg transition-colors"
+                        >
+                          📋 Review NOTAM Draft
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -2200,36 +2304,33 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
 
                   {'status' in selectedElement && (
                     <div className="space-y-2">
-                      {/* Check if it's a runway or taxiway and if user has permission */}
                       {airfieldStatus.runways.some(r => r.id === selectedElement.id) ? (
                         /* Runway status controls */
                         canManageRunways ? (
                           <>
                             <p className="text-sm text-slate-400">Change {selectedElement.id} Status:</p>
                             <div className="grid grid-cols-3 gap-2">
-                              <button
-                                type="button"
-                                onClick={() => toggleRunwayStatus(selectedElement.id, 'open')}
-                                className="px-3 py-2 bg-green-600 rounded hover:bg-green-700 text-sm"
-                              >
-                                Open
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => toggleRunwayStatus(selectedElement.id, 'wip')}
-                                className="px-3 py-2 bg-amber-600 rounded hover:bg-amber-700 text-sm"
-                              >
-                                WIP
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => toggleRunwayStatus(selectedElement.id, 'closed')}
-                                className="px-3 py-2 bg-red-600 rounded hover:bg-red-700 text-sm"
-                              >
-                                Close
-                              </button>
+                              {(['open', 'wip', 'closed'] as const).map(status => (
+                                <button
+                                  key={status}
+                                  type="button"
+                                  onClick={() => setPendingChange({
+                                    elementId: selectedElement.id,
+                                    elementType: 'runway',
+                                    newStatus: status,
+                                    elementName: 'name' in selectedElement ? selectedElement.name : selectedElement.id,
+                                    scope: 'single',
+                                  })}
+                                  className={`px-3 py-2 rounded text-sm transition-colors ${
+                                    pendingChange?.elementId === selectedElement.id && pendingChange.scope === 'single' && pendingChange.newStatus === status
+                                      ? status === 'open' ? 'bg-green-600 ring-2 ring-white' : status === 'wip' ? 'bg-amber-600 ring-2 ring-white' : 'bg-red-600 ring-2 ring-white'
+                                      : status === 'open' ? 'bg-green-600/50 hover:bg-green-600' : status === 'wip' ? 'bg-amber-600/50 hover:bg-amber-600' : 'bg-red-600/50 hover:bg-red-600'
+                                  }`}
+                                >
+                                  {status === 'open' ? 'Open' : status === 'wip' ? 'WIP' : 'Close'}
+                                </button>
+                              ))}
                             </div>
-                            {/* Show "Entire Runway" option if runway has multiple sections */}
                             {'parentId' in selectedElement && selectedElement.parentId && (
                               (() => {
                                 const siblingCount = airfieldStatus.runways.filter(r => r.parentId === selectedElement.parentId).length;
@@ -2238,27 +2339,27 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
                                     <>
                                       <p className="text-sm text-slate-400 mt-3">Change ENTIRE {selectedElement.name}:</p>
                                       <div className="grid grid-cols-3 gap-2">
-                                        <button
-                                          type="button"
-                                          onClick={() => toggleAllRunwaySections(selectedElement.parentId!, 'open')}
-                                          className="px-3 py-2 bg-green-800 border border-green-600 rounded hover:bg-green-700 text-sm"
-                                        >
-                                          Open All
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() => toggleAllRunwaySections(selectedElement.parentId!, 'wip')}
-                                          className="px-3 py-2 bg-amber-800 border border-amber-600 rounded hover:bg-amber-700 text-sm"
-                                        >
-                                          WIP All
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() => toggleAllRunwaySections(selectedElement.parentId!, 'closed')}
-                                          className="px-3 py-2 bg-red-800 border border-red-600 rounded hover:bg-red-700 text-sm"
-                                        >
-                                          Close All
-                                        </button>
+                                        {(['open', 'wip', 'closed'] as const).map(status => (
+                                          <button
+                                            key={status}
+                                            type="button"
+                                            onClick={() => setPendingChange({
+                                              elementId: selectedElement.id,
+                                              elementType: 'runway',
+                                              newStatus: status,
+                                              elementName: 'name' in selectedElement ? selectedElement.name : selectedElement.id,
+                                              scope: 'all',
+                                              parentId: selectedElement.parentId!,
+                                            })}
+                                            className={`px-3 py-2 rounded text-sm transition-colors border ${
+                                              pendingChange?.elementId === selectedElement.id && pendingChange.scope === 'all' && pendingChange.newStatus === status
+                                                ? status === 'open' ? 'bg-green-800 border-green-500 ring-2 ring-white' : status === 'wip' ? 'bg-amber-800 border-amber-500 ring-2 ring-white' : 'bg-red-800 border-red-500 ring-2 ring-white'
+                                                : status === 'open' ? 'bg-green-800/50 border-green-600 hover:bg-green-800' : status === 'wip' ? 'bg-amber-800/50 border-amber-600 hover:bg-amber-800' : 'bg-red-800/50 border-red-600 hover:bg-red-800'
+                                            }`}
+                                          >
+                                            {status === 'open' ? 'Open All' : status === 'wip' ? 'WIP All' : 'Close All'}
+                                          </button>
+                                        ))}
                                       </div>
                                     </>
                                   );
@@ -2276,29 +2377,27 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
                           <>
                             <p className="text-sm text-slate-400">Change {selectedElement.id} Status:</p>
                             <div className="grid grid-cols-3 gap-2">
-                              <button
-                                type="button"
-                                onClick={() => toggleTaxiwayStatus(selectedElement.id, 'open')}
-                                className="px-3 py-2 bg-green-600 rounded hover:bg-green-700 text-sm"
-                              >
-                                {selectedElement.id === 'CP' ? 'De-Activate' : 'Open'}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => toggleTaxiwayStatus(selectedElement.id, 'wip')}
-                                className="px-3 py-2 bg-amber-600 rounded hover:bg-amber-700 text-sm"
-                              >
-                                WIP
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => toggleTaxiwayStatus(selectedElement.id, 'closed')}
-                                className="px-3 py-2 bg-red-600 rounded hover:bg-red-700 text-sm"
-                              >
-                                {selectedElement.id === 'CP' ? 'Activate' : 'Close'}
-                              </button>
+                              {(['open', 'wip', 'closed'] as const).map(status => (
+                                <button
+                                  key={status}
+                                  type="button"
+                                  onClick={() => setPendingChange({
+                                    elementId: selectedElement.id,
+                                    elementType: 'taxiway',
+                                    newStatus: status,
+                                    elementName: 'name' in selectedElement ? selectedElement.name : selectedElement.id,
+                                    scope: 'single',
+                                  })}
+                                  className={`px-3 py-2 rounded text-sm transition-colors ${
+                                    pendingChange?.elementId === selectedElement.id && pendingChange.scope === 'single' && pendingChange.newStatus === status
+                                      ? status === 'open' ? 'bg-green-600 ring-2 ring-white' : status === 'wip' ? 'bg-amber-600 ring-2 ring-white' : 'bg-red-600 ring-2 ring-white'
+                                      : status === 'open' ? 'bg-green-600/50 hover:bg-green-600' : status === 'wip' ? 'bg-amber-600/50 hover:bg-amber-600' : 'bg-red-600/50 hover:bg-red-600'
+                                  }`}
+                                >
+                                  {status === 'open' ? (selectedElement.id === 'CP' ? 'De-Activate' : 'Open') : status === 'wip' ? 'WIP' : (selectedElement.id === 'CP' ? 'Activate' : 'Close')}
+                                </button>
+                              ))}
                             </div>
-                            {/* Show "All Sections" option if taxiway has multiple sections */}
                             {'parentId' in selectedElement && selectedElement.parentId && (
                               (() => {
                                 const siblingCount = airfieldStatus.taxiways.filter(t => t.parentId === selectedElement.parentId).length;
@@ -2307,27 +2406,27 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
                                     <>
                                       <p className="text-sm text-slate-400 mt-3">Change ALL {selectedElement.name} Sections:</p>
                                       <div className="grid grid-cols-3 gap-2">
-                                        <button
-                                          type="button"
-                                          onClick={() => toggleAllTaxiwaySections(selectedElement.parentId!, 'open')}
-                                          className="px-3 py-2 bg-green-800 border border-green-600 rounded hover:bg-green-700 text-sm"
-                                        >
-                                          Open All
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() => toggleAllTaxiwaySections(selectedElement.parentId!, 'wip')}
-                                          className="px-3 py-2 bg-amber-800 border border-amber-600 rounded hover:bg-amber-700 text-sm"
-                                        >
-                                          WIP All
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() => toggleAllTaxiwaySections(selectedElement.parentId!, 'closed')}
-                                          className="px-3 py-2 bg-red-800 border border-red-600 rounded hover:bg-red-700 text-sm"
-                                        >
-                                          Close All
-                                        </button>
+                                        {(['open', 'wip', 'closed'] as const).map(status => (
+                                          <button
+                                            key={status}
+                                            type="button"
+                                            onClick={() => setPendingChange({
+                                              elementId: selectedElement.id,
+                                              elementType: 'taxiway',
+                                              newStatus: status,
+                                              elementName: 'name' in selectedElement ? selectedElement.name : selectedElement.id,
+                                              scope: 'all',
+                                              parentId: selectedElement.parentId!,
+                                            })}
+                                            className={`px-3 py-2 rounded text-sm transition-colors border ${
+                                              pendingChange?.elementId === selectedElement.id && pendingChange.scope === 'all' && pendingChange.newStatus === status
+                                                ? status === 'open' ? 'bg-green-800 border-green-500 ring-2 ring-white' : status === 'wip' ? 'bg-amber-800 border-amber-500 ring-2 ring-white' : 'bg-red-800 border-red-500 ring-2 ring-white'
+                                                : status === 'open' ? 'bg-green-800/50 border-green-600 hover:bg-green-800' : status === 'wip' ? 'bg-amber-800/50 border-amber-600 hover:bg-amber-800' : 'bg-red-800/50 border-red-600 hover:bg-red-800'
+                                            }`}
+                                          >
+                                            {status === 'open' ? 'Open All' : status === 'wip' ? 'WIP All' : 'Close All'}
+                                          </button>
+                                        ))}
                                       </div>
                                     </>
                                   );
@@ -2339,6 +2438,55 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
                         ) : (
                           <p className="text-xs text-slate-500 italic">You don&apos;t have permission to change taxiway status</p>
                         )
+                      )}
+
+                      {/* Inline confirmation — no modal, no page shift */}
+                      {pendingChange && pendingChange.elementId === selectedElement.id && (
+                        <div className="mt-3 bg-slate-600 border border-slate-500 rounded-lg p-3">
+                          <p className="text-sm text-white mb-2">
+                            {'This will change '}
+                            <span className="font-semibold">{pendingChange.elementName}</span>
+                            {pendingChange.scope === 'all' ? ' (all sections)' : ''}
+                            {' to '}
+                            <span className={
+                              pendingChange.newStatus === 'closed' ? 'font-bold text-red-400' :
+                              pendingChange.newStatus === 'wip' ? 'font-bold text-amber-400' :
+                              'font-bold text-green-400'
+                            }>
+                              {pendingChange.newStatus.toUpperCase()}
+                            </span>
+                          </p>
+                          {(pendingChange.newStatus === 'closed' || pendingChange.newStatus === 'wip') && (
+                            <input
+                              type="text"
+                              value={pendingReason}
+                              onChange={e => setPendingReason(e.target.value)}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter') applyPendingChange();
+                                if (e.key === 'Escape') { setPendingChange(null); setPendingReason(''); }
+                              }}
+                              placeholder="Reason (optional)"
+                              className="w-full bg-slate-700 text-white text-sm px-3 py-2 rounded mb-2 border border-slate-500 focus:outline-none focus:border-blue-400"
+                              autoFocus
+                            />
+                          )}
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={applyPendingChange}
+                              className="flex-1 bg-white text-slate-900 text-sm py-1.5 rounded font-semibold hover:bg-slate-100 transition-colors"
+                            >
+                              Confirm
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => { setPendingChange(null); setPendingReason(''); }}
+                              className="flex-1 bg-slate-700 text-slate-300 text-sm py-1.5 rounded hover:bg-slate-600 transition-colors"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
                       )}
                     </div>
                   )}
