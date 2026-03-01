@@ -56,6 +56,22 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Validate email format
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return NextResponse.json({ error: 'Invalid email format' }, { status: 400 });
+    }
+
+    // Validate password length
+    if (typeof password !== 'string' || password.length < 8) {
+      return NextResponse.json({ error: 'Password must be at least 8 characters' }, { status: 400 });
+    }
+
+    // Validate role is a known value
+    const allowedRoles = ['super_admin', 'admin', 'viewer'];
+    if (!allowedRoles.includes(role)) {
+      return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
+    }
+
     // Validate role-specific requirements
     if (role !== 'super_admin' && !airportId) {
       return NextResponse.json(

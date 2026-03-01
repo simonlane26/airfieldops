@@ -161,7 +161,13 @@ function decodeMetar(raw: string) {
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const icao = searchParams.get('icao') || 'EGNR';
+  const icaoParam = searchParams.get('icao') || 'EGNR';
+
+  // Validate ICAO code: 4 uppercase alphanumeric characters only
+  if (!/^[A-Z0-9]{4}$/.test(icaoParam)) {
+    return NextResponse.json({ error: 'Invalid ICAO code' }, { status: 400 });
+  }
+  const icao = icaoParam;
 
   try {
     // Fetch METAR from aviationweather.gov (free, no API key required)
@@ -215,7 +221,7 @@ export async function GET(request: NextRequest) {
   } catch (error: any) {
     console.error('Weather API error:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch weather data', details: error.message },
+      { error: 'Failed to fetch weather data' },
       { status: 500 }
     );
   }

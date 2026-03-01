@@ -50,6 +50,8 @@ export async function transaction<T>(
 }
 
 // Set session variables for RLS (Row Level Security)
+// Uses set_config() with parameters instead of string interpolation to prevent SQL injection.
+// The third argument `true` scopes the setting to the current transaction (equivalent to SET LOCAL).
 export async function setSessionContext(
   client: any,
   airportId: string | null,
@@ -57,10 +59,12 @@ export async function setSessionContext(
 ) {
   if (airportId) {
     await client.query(
-      `SET LOCAL app.current_airport_id = '${airportId}'`
+      `SELECT set_config('app.current_airport_id', $1, true)`,
+      [airportId]
     );
   }
   await client.query(
-    `SET LOCAL app.user_role = '${userRole}'`
+    `SELECT set_config('app.user_role', $1, true)`,
+    [userRole]
   );
 }
