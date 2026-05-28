@@ -5,6 +5,10 @@ import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import {
+  Building2, ClipboardList, Flame,
+  Map, FileText, ShieldCheck, EyeOff, CalendarDays, Wind, ClipboardCheck, Users,
+} from 'lucide-react';
 
 export default function LandingPage() {
   const { data: session, status } = useSession();
@@ -374,7 +378,7 @@ export default function LandingPage() {
         <nav className="lp-nav">
           <div className="lp-nav-inner">
             <div className="lp-logo">
-              <Image src="/Airfieldopslogo.png" alt="AirfieldOps Manager" width={160} height={50} style={{ height: '50px', width: 'auto' }} priority />
+              <Image src="/Airfieldopslogo.png" alt="AirfieldOps Manager" width={240} height={75} style={{ height: '75px', width: 'auto' }} priority />
             </div>
             <div className="lp-nav-links">
               <a href="#features">Features</a>
@@ -479,19 +483,19 @@ export default function LandingPage() {
             </div>
             <div className="features-grid">
               {[
-                { icon: <polygon points="3 11 22 2 13 21 11 13 3 11" />, title: 'Real-Time Taxiway Status', desc: 'Interactive map with live status overlays. Click to change status, view history, and manage closures with full audit trails.' },
-                { icon: <><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></>, title: 'Automated NOTAM Drafting', desc: 'Generate compliant NOTAMs automatically when taxiways close. Pre-filled templates save hours of manual work.' },
-                { icon: <><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></>, title: 'Complete Audit Trail', desc: 'Every status change logged with timestamps. CAA CAP 562 compliant records retained immutably.' },
-                { icon: <><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></>, title: 'Low Visibility Procedures', desc: 'One-click activation with instant visual warnings across the system. Ensure all operators are aware immediately.' },
-                { icon: <><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="m9 16 2 2 4-4"/></>, title: 'Work Schedule Management', desc: 'Plan maintenance windows, track work crews, and coordinate closures to minimise operational impact.' },
-                { icon: <><path d="M12 2v10"/><path d="M18.4 6.6a9 9 0 1 1-12.77.04"/></>, title: 'Weather Integration', desc: 'Live METAR, wind components, visibility, and runway conditions. Critical data at your fingertips.' },
-                { icon: <><rect width="8" height="4" x="8" y="2" rx="1"/><path d="M8 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/><path d="M16 4h2a2 2 0 0 1 2 2v4"/><path d="M21 14H11"/><path d="m15 10-4 4 4 4"/></>, title: 'RCAM Assessments', desc: 'ICAO 9981 PANS-ADR compliant runway condition assessments. Track RWYCC codes and braking action.' },
-                { icon: <><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></>, title: 'Multi-User Collaboration', desc: 'Role-based access for ATC, ops teams, and maintenance crews. Real-time sync across all users.' },
-                { icon: <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" />, title: 'RFFS Management', desc: 'Track Rescue & Fire Fighting Service categories, equipment status, and response capabilities.' },
-              ].map(({ icon, title, desc }) => (
+                { Icon: Map,           title: 'Real-Time Taxiway Status',   desc: 'Interactive map with live status overlays. Click to change status, view history, and manage closures with full audit trails.' },
+                { Icon: FileText,      title: 'Automated NOTAM Drafting',   desc: 'Generate compliant NOTAMs automatically when taxiways close. Pre-filled templates save hours of manual work.' },
+                { Icon: ShieldCheck,   title: 'Complete Audit Trail',        desc: 'Every status change logged with timestamps. CAA CAP 562 compliant records retained immutably.' },
+                { Icon: EyeOff,        title: 'Low Visibility Procedures',   desc: 'One-click activation with instant visual warnings across the system. Ensure all operators are aware immediately.' },
+                { Icon: CalendarDays,  title: 'Work Schedule Management',    desc: 'Plan maintenance windows, track work crews, and coordinate closures to minimise operational impact.' },
+                { Icon: Wind,          title: 'Weather Integration',         desc: 'Live METAR, wind components, visibility, and runway conditions. Critical data at your fingertips.' },
+                { Icon: ClipboardCheck,title: 'RCAM Assessments',            desc: 'ICAO 9981 PANS-ADR compliant runway condition assessments. Track RWYCC codes and braking action.' },
+                { Icon: Users,         title: 'Multi-User Collaboration',    desc: 'Role-based access for ATC, ops teams, and maintenance crews. Real-time sync across all users.' },
+                { Icon: Flame,         title: 'RFFS Management',             desc: 'Track Rescue & Fire Fighting Service categories, equipment status, and response capabilities.' },
+              ].map(({ Icon, title, desc }) => (
                 <div key={title} className="feature-card">
                   <div className="feature-icon-wrap">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{icon}</svg>
+                    <Icon size={36} strokeWidth={1.75} />
                   </div>
                   <h3>{title}</h3>
                   <p>{desc}</p>
@@ -510,12 +514,14 @@ export default function LandingPage() {
             </div>
             <div className="use-cases-grid">
               {[
-                { emoji: '🏢', title: 'Regional Airports', desc: 'Streamline operations with limited staff. One platform for all airfield management needs.' },
-                { emoji: '🕐', title: 'Airport Operations', desc: 'Coordinate works, manage closures, and maintain compliance with ease.' },
-                { emoji: '🚒', title: 'Airport Fire Services', desc: 'Track equipment, manage RFFS categories, and coordinate emergency responses.' },
-              ].map(({ emoji, title, desc }) => (
+                { Icon: Building2,     title: 'Regional Airports',     desc: 'Streamline operations with limited staff. One platform for all airfield management needs.' },
+                { Icon: ClipboardList, title: 'Airport Operations',    desc: 'Coordinate works, manage closures, and maintain compliance with ease.' },
+                { Icon: Flame,         title: 'Airport Fire Services', desc: 'Track equipment, manage RFFS categories, and coordinate emergency responses.' },
+              ].map(({ Icon, title, desc }) => (
                 <div key={title} className="use-case-card">
-                  <div className="use-case-icon">{emoji}</div>
+                  <div className="use-case-icon">
+                    <Icon size={44} strokeWidth={1.5} />
+                  </div>
                   <h3>{title}</h3>
                   <p>{desc}</p>
                 </div>
@@ -604,7 +610,7 @@ export default function LandingPage() {
         <footer className="lp-footer">
           <div className="lp-footer-inner">
             <div className="footer-brand">
-              <Image src="/Airfieldopslogo.png" alt="AirfieldOps Manager" width={160} height={45} style={{ height: '45px', width: 'auto' }} />
+              <Image src="/Airfieldopslogo.png" alt="AirfieldOps Manager" width={200} height={64} style={{ height: '64px', width: 'auto' }} />
               <p>Real-time airfield management software trusted by aviation professionals worldwide. Keep your operations safe, compliant, and efficient.</p>
             </div>
             <div className="footer-links">
