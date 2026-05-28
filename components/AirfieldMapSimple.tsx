@@ -1483,6 +1483,112 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
         </div>
       </div>
 
+      {/* Operational Summary Strip */}
+      {!diagramLoading && !diagramError && (
+        <div className="mb-4 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 flex gap-2 overflow-x-auto items-center">
+          <span className="text-xs text-slate-500 font-semibold shrink-0 uppercase tracking-wider mr-1">OPS</span>
+
+          {/* Runway status */}
+          {(() => {
+            const groups = new Map<string, TaxiwayStatus>();
+            airfieldStatus.runways.forEach(r => {
+              const key = r.parentId || r.id;
+              const cur = groups.get(key) || 'open';
+              if (r.status === 'closed' || (r.status === 'wip' && cur !== 'closed')) groups.set(key, r.status);
+              else if (!groups.has(key)) groups.set(key, 'open');
+            });
+            const nonOpen = Array.from(groups.entries()).filter(([, s]) => s !== 'open');
+            if (nonOpen.length === 0) return (
+              <span className="flex items-center gap-1 shrink-0 px-2 py-1 bg-green-900/40 border border-green-700/50 rounded text-xs font-semibold text-green-300">
+                <span className="w-2 h-2 rounded-full bg-green-400 inline-block" />RWY OPEN
+              </span>
+            );
+            return nonOpen.map(([key, status]) => (
+              <span key={key} className={`flex items-center gap-1 shrink-0 px-2 py-1 rounded text-xs font-semibold border ${status === 'closed' ? 'bg-red-900/40 border-red-700/50 text-red-300' : 'bg-amber-900/40 border-amber-700/50 text-amber-300'}`}>
+                <span className={`w-2 h-2 rounded-full inline-block ${status === 'closed' ? 'bg-red-400' : 'bg-amber-400'}`} />
+                RWY {key} {status.toUpperCase()}
+              </span>
+            ));
+          })()}
+
+          {/* RFFS Category */}
+          <span className={`flex items-center gap-1 shrink-0 px-2 py-1 rounded text-xs font-semibold border ${rffsCategory === '0' ? 'bg-red-900/40 border-red-700/50 text-red-300' : rffsCategory === '4' ? 'bg-amber-900/40 border-amber-700/50 text-amber-300' : 'bg-green-900/40 border-green-700/50 text-green-300'}`}>
+            <span className={`w-2 h-2 rounded-full inline-block ${rffsCategory === '0' ? 'bg-red-400' : rffsCategory === '4' ? 'bg-amber-400' : 'bg-green-400'}`} />
+            CAT {rffsCategory}
+          </span>
+
+          {/* Taxiway status */}
+          {(() => {
+            const groups = new Map<string, TaxiwayStatus>();
+            airfieldStatus.taxiways.forEach(t => {
+              if (t.id.startsWith('APRON-')) return;
+              const key = t.parentId || t.id;
+              const cur = groups.get(key) || 'open';
+              if (t.status === 'closed' || (t.status === 'wip' && cur !== 'closed')) groups.set(key, t.status);
+              else if (!groups.has(key)) groups.set(key, 'open');
+            });
+            const nonOpen = Array.from(groups.entries()).filter(([, s]) => s !== 'open');
+            if (nonOpen.length === 0) return (
+              <span className="flex items-center gap-1 shrink-0 px-2 py-1 bg-green-900/40 border border-green-700/50 rounded text-xs font-semibold text-green-300">
+                <span className="w-2 h-2 rounded-full bg-green-400 inline-block" />TWY CLEAR
+              </span>
+            );
+            const visible = nonOpen.slice(0, 3);
+            const extra = nonOpen.length - visible.length;
+            return (
+              <>
+                {visible.map(([key, status]) => (
+                  <span key={key} className={`flex items-center gap-1 shrink-0 px-2 py-1 rounded text-xs font-semibold border ${status === 'closed' ? 'bg-red-900/40 border-red-700/50 text-red-300' : 'bg-amber-900/40 border-amber-700/50 text-amber-300'}`}>
+                    <span className={`w-2 h-2 rounded-full inline-block ${status === 'closed' ? 'bg-red-400' : 'bg-amber-400'}`} />
+                    TWY {key} {status.toUpperCase()}
+                  </span>
+                ))}
+                {extra > 0 && (
+                  <span className="flex items-center gap-1 shrink-0 px-2 py-1 bg-slate-700 border border-slate-600 rounded text-xs font-semibold text-slate-300">+{extra} more</span>
+                )}
+              </>
+            );
+          })()}
+
+          {/* Low Visibility / LVP */}
+          <span className={`flex items-center gap-1 shrink-0 px-2 py-1 rounded text-xs font-semibold border ${lowVisibility ? 'bg-red-900/40 border-red-700/50 text-red-300' : 'bg-green-900/40 border-green-700/50 text-green-300'}`}>
+            <span className={`w-2 h-2 rounded-full inline-block ${lowVisibility ? 'bg-red-400 animate-pulse' : 'bg-green-400'}`} />
+            {lowVisibility ? `LVP ${lowVisCondition}` : 'VIS NORMAL'}
+          </span>
+
+          {/* Surface condition */}
+          {snowClosed ? (
+            <span className="flex items-center gap-1 shrink-0 px-2 py-1 bg-red-900/40 border border-red-700/50 rounded text-xs font-semibold text-red-300">
+              <span className="w-2 h-2 rounded-full bg-red-400 inline-block" />SNOW/ICE
+            </span>
+          ) : rcamAssessments.length > 0 ? (() => {
+            const worst = Math.min(
+              rcamAssessments[0].thirds.first.rwycc,
+              rcamAssessments[0].thirds.second.rwycc,
+              rcamAssessments[0].thirds.third.rwycc
+            );
+            const label = worst >= 5 ? 'DRY' : worst >= 3 ? 'WET' : worst >= 1 ? 'CONTAMINATED' : 'ICY';
+            const cls = worst >= 5 ? 'bg-green-900/40 border-green-700/50 text-green-300' : worst >= 3 ? 'bg-amber-900/40 border-amber-700/50 text-amber-300' : 'bg-red-900/40 border-red-700/50 text-red-300';
+            const dot = worst >= 5 ? 'bg-green-400' : worst >= 3 ? 'bg-amber-400' : 'bg-red-400';
+            return (
+              <span className={`flex items-center gap-1 shrink-0 px-2 py-1 rounded text-xs font-semibold border ${cls}`}>
+                <span className={`w-2 h-2 rounded-full inline-block ${dot}`} />{label}
+              </span>
+            );
+          })() : (
+            <span className="flex items-center gap-1 shrink-0 px-2 py-1 bg-green-900/40 border border-green-700/50 rounded text-xs font-semibold text-green-300">
+              <span className="w-2 h-2 rounded-full bg-green-400 inline-block" />DRY
+            </span>
+          )}
+
+          {/* NOTAM status */}
+          <span className={`flex items-center gap-1 shrink-0 px-2 py-1 rounded text-xs font-semibold border ${notamDrafts.length > 0 ? 'bg-amber-900/40 border-amber-700/50 text-amber-300' : 'bg-green-900/40 border-green-700/50 text-green-300'}`}>
+            <span className={`w-2 h-2 rounded-full inline-block ${notamDrafts.length > 0 ? 'bg-amber-400' : 'bg-green-400'}`} />
+            {notamDrafts.length > 0 ? `${notamDrafts.length} NOTAM DRAFT${notamDrafts.length > 1 ? 'S' : ''}` : 'NO ACTIVE NOTAMS'}
+          </span>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Map Area */}
         <div className="lg:col-span-2 bg-slate-800 rounded-lg p-6 relative">
