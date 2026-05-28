@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { AlertTriangle, Eye, Radio, Upload, History, LogOut, Shield, User } from 'lucide-react';
+import { AlertTriangle, Eye, Radio, Upload, History, LogOut, Shield, User, ChevronDown } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import type { AirfieldStatus, Taxiway, Runway, WorkArea, Notice, TaxiwayStatus, ScheduledWIP, RunwayInspection, OperationalPeriod, RCAMAssessment, NOTAMDraft, LVPCondition } from './types/airfield';
@@ -75,6 +75,42 @@ const loadDiagramFromDB = async (airportId: string): Promise<string | null> => {
   }
 };
 
+const CollapsibleCard = ({
+  title,
+  badge,
+  isActive = false,
+  expanded,
+  onToggle,
+  children,
+}: {
+  title: string;
+  badge?: React.ReactNode;
+  isActive?: boolean;
+  expanded: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) => (
+  <div className={`mb-2 rounded-lg overflow-hidden ${isActive ? 'ring-1 ring-amber-500/50' : 'border border-slate-600/60'}`}>
+    <button
+      type="button"
+      onClick={onToggle}
+      className={`w-full flex items-center justify-between px-3 py-2.5 text-left transition-colors ${
+        isActive ? 'bg-amber-900/25 hover:bg-amber-900/40' : 'bg-slate-700/80 hover:bg-slate-600/80'
+      }`}
+    >
+      <span className="font-semibold text-sm flex items-center gap-2">
+        {isActive && <span className="inline-block w-2 h-2 rounded-full bg-amber-400 animate-pulse" />}
+        {title}
+      </span>
+      <div className="flex items-center gap-2">
+        {badge}
+        <ChevronDown size={14} className={`transition-transform duration-200 text-slate-400 ${expanded ? 'rotate-180' : ''}`} />
+      </div>
+    </button>
+    {expanded && <div className="p-3 border-t border-slate-600/40">{children}</div>}
+  </div>
+);
+
 const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
   const router = useRouter();
   const permissions = getSessionPermissions(session);
@@ -139,6 +175,16 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
   const [pendingSnowReason, setPendingSnowReason] = useState('');
   const [pendingRffsCategory, setPendingRffsCategory] = useState<'7' | '4' | '0' | null>(null);
   const [pendingRffsReason, setPendingRffsReason] = useState('');
+  const [lvpCardOpen, setLvpCardOpen] = useState(false);
+  const [snowCardOpen, setSnowCardOpen] = useState(false);
+  const [wipCardOpen, setWipCardOpen] = useState(false);
+  const [notamCardOpen, setNotamCardOpen] = useState(false);
+  const [weatherCardOpen, setWeatherCardOpen] = useState(false);
+  const [inspectionCardOpen, setInspectionCardOpen] = useState(false);
+  const [rcamCardOpen, setRcamCardOpen] = useState(false);
+  const [rffsCardOpen, setRffsCardOpen] = useState(false);
+  const [statusCardOpen, setStatusCardOpen] = useState(false);
+  const [noticesCardOpen, setNoticesCardOpen] = useState(false);
 
   // Aerodrome ICAO code - this would come from airport config in production
   const aerodromeIcao = 'EGNR'; // Hawarden
@@ -165,6 +211,20 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
     setPendingChange(null);
     setPendingReason('');
   }, [selectedElement?.id]);
+
+  // Auto-expand collapsible cards when their state becomes active
+  useEffect(() => { if (lowVisibility) setLvpCardOpen(true); }, [lowVisibility]);
+  useEffect(() => { if (snowClosed) setSnowCardOpen(true); }, [snowClosed]);
+  useEffect(() => { if (notamDrafts.length > 0) setNotamCardOpen(true); }, [notamDrafts.length]);
+  useEffect(() => { if (rcamAssessments.length > 0) setRcamCardOpen(true); }, [rcamAssessments.length]);
+  useEffect(() => { if (latestRunwayInspection) setInspectionCardOpen(true); }, [latestRunwayInspection]);
+  useEffect(() => { if (operationalPeriods.some(p => p.status === 'active')) setNoticesCardOpen(true); }, [operationalPeriods]);
+
+  const activeWIPCount = scheduledWIPs.filter(w => {
+    const n = Date.now();
+    return n >= new Date(w.startDateTime).getTime() && n <= new Date(w.endDateTime).getTime();
+  }).length;
+  useEffect(() => { if (activeWIPCount > 0) setWipCardOpen(true); }, [activeWIPCount]);
 
   // Load diagram data from API on mount
   useEffect(() => {
@@ -913,14 +973,14 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
   };
 
   const openAndScrollToNOTAM = () => {
-    setShowNOTAMAssistant(true);
+    setNotamCardOpen(true);
     setTimeout(() => notamRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
   };
 
   // NOTAM Draft Helper Functions
   const addNOTAMDraft = (draft: NOTAMDraft) => {
     setNotamDrafts(prev => [draft, ...prev]);
-    setShowNOTAMAssistant(true); // Auto-show when draft is added
+    setNotamCardOpen(true);
   };
 
   const dismissNOTAMDraft = (draftId: string) => {
@@ -1955,338 +2015,293 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
         </div>
 
         {/* Control Panel */}
-        <div className="bg-slate-800 rounded-lg p-6 flex flex-col">
+        <div className="bg-slate-800 rounded-lg p-3 flex flex-col overflow-y-auto">
           {isATCView ? (
             <>
-              <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-                <Radio size={24} />
+              <h2 className="text-lg font-bold mb-2 flex items-center gap-2 px-1">
+                <Radio size={20} />
                 ATC Control Panel
               </h2>
 
-              {/* Low Visibility Control - requires LVP permission */}
-              {canManageLvp ? (
-                <button
-                  onClick={() => setPendingLvpActivate(!lowVisibility)}
-                  className={`w-full p-4 rounded-lg font-bold text-lg mb-2 transition-all ${
-                    lowVisibility ? 'bg-red-600 text-white' : 'bg-slate-700 border border-green-700 text-green-400 hover:bg-slate-600'
-                  }`}
-                >
-                  <AlertTriangle className="inline mr-2" size={24} />
-                  {lowVisibility ? 'LOW VIS ACTIVE' : 'LOW VIS DE-ACTIVATED'}
-                </button>
-              ) : (
-                /* Display-only LVP status for users without permission */
-                <div className={`w-full p-4 rounded-lg font-bold text-lg mb-4 ${
-                  lowVisibility ? 'bg-red-600 text-white' : 'bg-slate-700 border border-green-700 text-green-400'
-                } opacity-75`}>
-                  <AlertTriangle className="inline mr-2" size={24} />
-                  {lowVisibility ? 'LOW VIS ACTIVE' : 'LOW VIS DE-ACTIVATED'}
-                  <span className="block text-xs font-normal mt-1 opacity-75">View only</span>
-                </div>
-              )}
-
-              {/* LVP inline confirmation */}
-              {pendingLvpActivate !== null && (
-                <div className="mb-4 bg-slate-600 border border-slate-500 rounded-lg p-3">
-                  <p className="text-sm text-white mb-2">
-                    {'This will '}
-                    <span className={pendingLvpActivate ? 'font-bold text-red-400' : 'font-bold text-green-400'}>
-                      {pendingLvpActivate ? 'ACTIVATE' : 'DE-ACTIVATE'}
+              {/* Active status summary bar */}
+              {(lowVisibility || snowClosed || activeWIPCount > 0 || notamDrafts.length > 0) && (
+                <div className="flex flex-wrap gap-1.5 mb-3 px-1">
+                  {lowVisibility && (
+                    <span className="flex items-center gap-1 px-2 py-1 bg-red-900/60 border border-red-500/60 rounded text-xs font-bold text-red-300">
+                      <span className="inline-block w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
+                      LOW VIS ACTIVE
                     </span>
-                    {' Low Visibility Operations'}
-                  </p>
-                  <input
-                    type="text"
-                    value={pendingLvpReason}
-                    onChange={e => setPendingLvpReason(e.target.value)}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter') { toggleLowVisibility(pendingLvpReason.trim() || null); setPendingLvpActivate(null); setPendingLvpReason(''); }
-                      if (e.key === 'Escape') { setPendingLvpActivate(null); setPendingLvpReason(''); }
-                    }}
-                    placeholder="Reason (optional)"
-                    className="w-full bg-slate-700 text-white text-sm px-3 py-2 rounded mb-2 border border-slate-500 focus:outline-none focus:border-blue-400"
-                    autoFocus
-                  />
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => { toggleLowVisibility(pendingLvpReason.trim() || null); setPendingLvpActivate(null); setPendingLvpReason(''); }}
-                      className="flex-1 bg-white text-slate-900 text-sm py-1.5 rounded font-semibold hover:bg-slate-100 transition-colors"
-                    >
-                      Confirm
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { setPendingLvpActivate(null); setPendingLvpReason(''); }}
-                      className="flex-1 bg-slate-700 text-slate-300 text-sm py-1.5 rounded hover:bg-slate-600 transition-colors"
-                    >
-                      Cancel
-                    </button>
-                  </div>
+                  )}
+                  {snowClosed && (
+                    <span className="flex items-center gap-1 px-2 py-1 bg-sky-900/60 border border-sky-500/60 rounded text-xs font-bold text-sky-300">
+                      <span className="inline-block w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse" />
+                      SNOW/ICE ACTIVE
+                    </span>
+                  )}
+                  {activeWIPCount > 0 && (
+                    <span className="flex items-center gap-1 px-2 py-1 bg-amber-900/60 border border-amber-500/60 rounded text-xs font-bold text-amber-300">
+                      <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                      {activeWIPCount} WIP ACTIVE
+                    </span>
+                  )}
+                  {notamDrafts.length > 0 && (
+                    <span className="flex items-center gap-1 px-2 py-1 bg-blue-900/60 border border-blue-500/60 rounded text-xs font-bold text-blue-300">
+                      📝 {notamDrafts.length} NOTAM DRAFT{notamDrafts.length > 1 ? 'S' : ''}
+                    </span>
+                  )}
                 </div>
               )}
 
-              {/* LVP Quick Actions */}
-              {lowVisibility && canViewNotamDrafts && notamDrafts.some(d => d.type === 'low-visibility') && (
-                <div className="flex gap-2 mb-4">
+              {/* Low Visibility Card */}
+              <CollapsibleCard
+                title="Low Visibility Procedures"
+                isActive={lowVisibility}
+                expanded={lvpCardOpen}
+                onToggle={() => setLvpCardOpen(o => !o)}
+                badge={lowVisibility ? <span className="text-xs bg-red-600 text-white px-2 py-0.5 rounded font-bold">ACTIVE</span> : undefined}
+              >
+                {canManageLvp ? (
                   <button
-                    type="button"
-                    onClick={openAndScrollToNOTAM}
-                    className="flex-1 text-sm bg-blue-600/20 hover:bg-blue-600/40 border border-blue-500/50 text-blue-300 px-3 py-2 rounded-lg transition-colors"
+                    onClick={() => setPendingLvpActivate(!lowVisibility)}
+                    className={`w-full p-3 rounded-lg font-bold text-base mb-2 transition-all ${
+                      lowVisibility ? 'bg-red-600 text-white' : 'bg-slate-700 border border-green-700 text-green-400 hover:bg-slate-600'
+                    }`}
                   >
+                    <AlertTriangle className="inline mr-2" size={20} />
+                    {lowVisibility ? 'LOW VIS ACTIVE' : 'LOW VIS DE-ACTIVATED'}
+                  </button>
+                ) : (
+                  <div className={`w-full p-3 rounded-lg font-bold text-base mb-2 ${
+                    lowVisibility ? 'bg-red-600 text-white' : 'bg-slate-700 border border-green-700 text-green-400'
+                  } opacity-75`}>
+                    <AlertTriangle className="inline mr-2" size={20} />
+                    {lowVisibility ? 'LOW VIS ACTIVE' : 'LOW VIS DE-ACTIVATED'}
+                    <span className="block text-xs font-normal mt-1 opacity-75">View only</span>
+                  </div>
+                )}
+                {pendingLvpActivate !== null && (
+                  <div className="mb-2 bg-slate-600 border border-slate-500 rounded-lg p-3">
+                    <p className="text-sm text-white mb-2">
+                      {'This will '}
+                      <span className={pendingLvpActivate ? 'font-bold text-red-400' : 'font-bold text-green-400'}>
+                        {pendingLvpActivate ? 'ACTIVATE' : 'DE-ACTIVATE'}
+                      </span>
+                      {' Low Visibility Operations'}
+                    </p>
+                    <input
+                      type="text"
+                      value={pendingLvpReason}
+                      onChange={e => setPendingLvpReason(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') { toggleLowVisibility(pendingLvpReason.trim() || null); setPendingLvpActivate(null); setPendingLvpReason(''); }
+                        if (e.key === 'Escape') { setPendingLvpActivate(null); setPendingLvpReason(''); }
+                      }}
+                      placeholder="Reason (optional)"
+                      className="w-full bg-slate-700 text-white text-sm px-3 py-2 rounded mb-2 border border-slate-500 focus:outline-none focus:border-blue-400"
+                      autoFocus
+                    />
+                    <div className="flex gap-2">
+                      <button type="button" onClick={() => { toggleLowVisibility(pendingLvpReason.trim() || null); setPendingLvpActivate(null); setPendingLvpReason(''); }} className="flex-1 bg-white text-slate-900 text-sm py-1.5 rounded font-semibold hover:bg-slate-100 transition-colors">Confirm</button>
+                      <button type="button" onClick={() => { setPendingLvpActivate(null); setPendingLvpReason(''); }} className="flex-1 bg-slate-700 text-slate-300 text-sm py-1.5 rounded hover:bg-slate-600 transition-colors">Cancel</button>
+                    </div>
+                  </div>
+                )}
+                {lowVisibility && canViewNotamDrafts && notamDrafts.some(d => d.type === 'low-visibility') && (
+                  <button type="button" onClick={openAndScrollToNOTAM} className="w-full text-sm bg-blue-600/20 hover:bg-blue-600/40 border border-blue-500/50 text-blue-300 px-3 py-2 rounded-lg transition-colors mb-2">
                     📋 Review NOTAM Draft
                   </button>
-                </div>
-              )}
+                )}
+                {lowVisibility && canManageWipSchedule && (
+                  <div className="mt-1 p-2 rounded-lg bg-slate-800 border border-amber-500/60 text-amber-400 text-center text-xs">
+                    ⚠️ Low Visibility Active — WIPs suspended
+                  </div>
+                )}
+              </CollapsibleCard>
 
-              {/* WIP Schedule - requires WIP Schedule permission */}
+              {/* Snow/Ice Card */}
+              <CollapsibleCard
+                title="Snow/Ice Operations"
+                isActive={snowClosed}
+                expanded={snowCardOpen}
+                onToggle={() => setSnowCardOpen(o => !o)}
+                badge={snowClosed ? <span className="text-xs bg-sky-600 text-white px-2 py-0.5 rounded font-bold">ACTIVE</span> : undefined}
+              >
+                {canManageSnow ? (
+                  <button
+                    onClick={() => setPendingSnowActivate(!snowClosed)}
+                    className={`w-full p-3 rounded-lg font-bold text-base mb-2 transition-all ${
+                      snowClosed ? 'bg-red-600 text-white' : 'bg-slate-700 border border-green-700 text-green-400 hover:bg-slate-600'
+                    }`}
+                  >
+                    ❄️ {snowClosed ? 'SNOW/ICE ACTIVE' : 'SNOW/ICE DE-ACTIVATED'}
+                  </button>
+                ) : (
+                  <div className={`w-full p-3 rounded-lg font-bold text-base mb-2 ${
+                    snowClosed ? 'bg-red-600 text-white' : 'bg-slate-700 border border-green-700 text-green-400'
+                  } opacity-75`}>
+                    ❄️ {snowClosed ? 'SNOW/ICE ACTIVE' : 'SNOW/ICE DE-ACTIVATED'}
+                    <span className="block text-xs font-normal mt-1 opacity-75">View only</span>
+                  </div>
+                )}
+                {pendingSnowActivate !== null && (
+                  <div className="mb-2 bg-slate-600 border border-slate-500 rounded-lg p-3">
+                    <p className="text-sm text-white mb-2">
+                      {'This will '}
+                      <span className={pendingSnowActivate ? 'font-bold text-red-400' : 'font-bold text-green-400'}>
+                        {pendingSnowActivate ? 'ACTIVATE' : 'DE-ACTIVATE'}
+                      </span>
+                      {' Snow/Ice conditions'}
+                    </p>
+                    <input
+                      type="text"
+                      value={pendingSnowReason}
+                      onChange={e => setPendingSnowReason(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') { toggleSnowClosed(pendingSnowReason.trim() || null); setPendingSnowActivate(null); setPendingSnowReason(''); }
+                        if (e.key === 'Escape') { setPendingSnowActivate(null); setPendingSnowReason(''); }
+                      }}
+                      placeholder="Reason (optional)"
+                      className="w-full bg-slate-700 text-white text-sm px-3 py-2 rounded mb-2 border border-slate-500 focus:outline-none focus:border-blue-400"
+                      autoFocus
+                    />
+                    <div className="flex gap-2">
+                      <button type="button" onClick={() => { toggleSnowClosed(pendingSnowReason.trim() || null); setPendingSnowActivate(null); setPendingSnowReason(''); }} className="flex-1 bg-white text-slate-900 text-sm py-1.5 rounded font-semibold hover:bg-slate-100 transition-colors">Confirm</button>
+                      <button type="button" onClick={() => { setPendingSnowActivate(null); setPendingSnowReason(''); }} className="flex-1 bg-slate-700 text-slate-300 text-sm py-1.5 rounded hover:bg-slate-600 transition-colors">Cancel</button>
+                    </div>
+                  </div>
+                )}
+                {snowClosed && pendingSnowActivate === null && (
+                  <div className="flex gap-2 mb-2">
+                    {canViewNotamDrafts && notamDrafts.some(d => d.type === 'snow-closure') && (
+                      <button type="button" onClick={openAndScrollToNOTAM} className="flex-1 text-sm bg-blue-600/20 hover:bg-blue-600/40 border border-blue-500/50 text-blue-300 px-3 py-2 rounded-lg transition-colors">
+                        📋 Review NOTAM Draft
+                      </button>
+                    )}
+                    {canManageRunways && (
+                      <button type="button" onClick={closeAllAreasForSnow} className="flex-1 text-sm bg-red-600/20 hover:bg-red-600/40 border border-red-500/50 text-red-300 px-3 py-2 rounded-lg transition-colors">
+                        🔒 Close All Areas
+                      </button>
+                    )}
+                  </div>
+                )}
+                {showSnowPanel && canManageSnow && (
+                  <div className="bg-slate-700 p-3 rounded-lg">
+                    <h3 className="font-bold mb-2 text-sm">Snow/Ice Affected Areas</h3>
+                    <div className="flex gap-2 mb-2">
+                      <button type="button" onClick={closeAllAreasForSnow} className="flex-1 bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg font-semibold text-sm transition-colors">❄️ Close All</button>
+                      <button type="button" onClick={clearAllSnowAreas} disabled={snowAffectedAreas.size === 0} className={`flex-1 px-3 py-2 rounded-lg font-semibold text-sm transition-colors ${snowAffectedAreas.size === 0 ? 'bg-slate-600 text-slate-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700 text-white'}`}>✓ Clear All</button>
+                    </div>
+                    {snowAffectedAreas.size > 0 && (
+                      <div className="bg-red-900/30 border border-red-500 rounded-lg p-2 mb-2 text-center">
+                        <span className="text-red-300 font-semibold text-sm">{snowAffectedAreas.size} area(s) closed</span>
+                      </div>
+                    )}
+                    <div className="space-y-1 max-h-48 overflow-y-auto text-sm">
+                      <p className="text-xs font-semibold text-slate-300 mb-1">RUNWAYS</p>
+                      {airfieldStatus.runways.map(runway => (
+                        <label key={runway.id} className="flex items-center gap-2 p-1.5 hover:bg-slate-600 rounded cursor-pointer">
+                          <input type="checkbox" checked={isSnowAffected(runway.id)} onChange={() => toggleSnowAffectedArea(runway.id)} className="w-4 h-4 cursor-pointer" />
+                          <span className={isSnowAffected(runway.id) ? 'text-red-400 font-semibold' : ''}>{runway.name}</span>
+                        </label>
+                      ))}
+                      <p className="text-xs font-semibold text-slate-300 mb-1 mt-2">TAXIWAYS</p>
+                      {airfieldStatus.taxiways.map(taxiway => (
+                        <label key={taxiway.id} className="flex items-center gap-2 p-1.5 hover:bg-slate-600 rounded cursor-pointer">
+                          <input type="checkbox" checked={isSnowAffected(taxiway.id)} onChange={() => toggleSnowAffectedArea(taxiway.id)} className="w-4 h-4 cursor-pointer" />
+                          <span className={isSnowAffected(taxiway.id) ? 'text-red-400 font-semibold' : ''}>{taxiway.id} — {taxiway.name}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </CollapsibleCard>
+
+              {/* WIP Schedule Card */}
               {canManageWipSchedule && (
-                <>
+                <CollapsibleCard
+                  title="WIP Schedule"
+                  isActive={activeWIPCount > 0}
+                  expanded={wipCardOpen}
+                  onToggle={() => setWipCardOpen(o => !o)}
+                  badge={scheduledWIPs.length > 0 ? <span className="text-xs bg-slate-600 text-slate-300 px-2 py-0.5 rounded">{scheduledWIPs.length}</span> : undefined}
+                >
                   {lowVisibility ? (
-                    <div className="w-full p-4 rounded-lg font-bold text-lg mb-6 bg-slate-800 border-2 border-amber-500 text-amber-400 text-center">
-                      <p>⚠️ Low Visibility Active</p>
-                      <p className="text-sm font-normal mt-1 text-amber-300">WIPs are suspended</p>
+                    <div className="p-3 rounded-lg bg-slate-800 border border-amber-500/60 text-amber-400 text-center text-sm">
+                      ⚠️ Low Visibility Active — WIPs suspended
                     </div>
                   ) : (
-                    <>
-                      <button
-                        onClick={() => setShowWIPCalendar(!showWIPCalendar)}
-                        className={`w-full p-4 rounded-lg font-bold text-lg mb-6 transition-all ${
-                          showWIPCalendar ? 'bg-blue-600 text-white' : 'bg-slate-700 hover:bg-blue-600'
-                        }`}
-                      >
-                        📅 {showWIPCalendar ? 'Hide WIP Schedule' : 'Show WIP Schedule'}
-                      </button>
-
-                      {showWIPCalendar && (
-                        <div className="mb-4">
-                          <WIPCalendar
-                            scheduledWIPs={scheduledWIPs}
-                            onAddWIP={handleAddWIP}
-                            onDeleteWIP={handleDeleteWIP}
-                            onUpdateWIP={handleUpdateWIP}
-                            availableTaxiways={[
-                              ...airfieldStatus.runways.map(r => ({ id: r.id, name: r.name, parentId: r.parentId, sectionLabel: r.sectionLabel })),
-                              ...airfieldStatus.taxiways.map(t => ({ id: t.id, name: t.name, parentId: t.parentId, sectionLabel: t.sectionLabel }))
-                            ]}
-                          />
-                        </div>
-                      )}
-                    </>
+                    <WIPCalendar
+                      scheduledWIPs={scheduledWIPs}
+                      onAddWIP={handleAddWIP}
+                      onDeleteWIP={handleDeleteWIP}
+                      onUpdateWIP={handleUpdateWIP}
+                      availableTaxiways={[
+                        ...airfieldStatus.runways.map(r => ({ id: r.id, name: r.name, parentId: r.parentId, sectionLabel: r.sectionLabel })),
+                        ...airfieldStatus.taxiways.map(t => ({ id: t.id, name: t.name, parentId: t.parentId, sectionLabel: t.sectionLabel }))
+                      ]}
+                    />
                   )}
-                </>
+                </CollapsibleCard>
               )}
 
-              {/* NOTAM Draft Assistant - requires NOTAM view permission */}
+              {/* NOTAM Drafts Card */}
               {canViewNotamDrafts && (
-                <div ref={notamRef}>
-                  <button
-                    onClick={() => setShowNOTAMAssistant(!showNOTAMAssistant)}
-                    className={`w-full p-4 rounded-lg font-bold text-lg mb-6 transition-all flex items-center justify-center gap-2 ${
-                      showNOTAMAssistant ? 'bg-blue-600 text-white' : 'bg-slate-700 hover:bg-blue-600'
-                    } ${notamDrafts.length > 0 ? 'ring-2 ring-amber-500' : ''}`}
-                  >
-                    📝 {showNOTAMAssistant ? 'Hide NOTAM Drafts' : 'NOTAM Draft Assistant'}
-                    {notamDrafts.length > 0 && (
-                      <span className="bg-amber-500 text-black text-sm px-2 py-0.5 rounded-full">
-                        {notamDrafts.length}
-                      </span>
-                    )}
-                  </button>
-
-                  {showNOTAMAssistant && (
-                    <div className="mb-4">
-                      <NOTAMDraftAssistant
-                        aerodromeIcao={aerodromeIcao}
-                        drafts={notamDrafts}
-                        onDraftDismissed={dismissNOTAMDraft}
-                        onCopyToClipboard={(text, format) => {
-                          addNotice('info', `NOTAM draft copied (${format} format)`, 'operational');
-                        }}
-                      />
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Snow/Ice Control - requires Snow Areas permission */}
-              {canManageSnow ? (
-                <button
-                  onClick={() => setPendingSnowActivate(!snowClosed)}
-                  className={`w-full p-4 rounded-lg font-bold text-lg mb-2 transition-all ${
-                    snowClosed ? 'bg-red-600 text-white' : 'bg-slate-700 border border-green-700 text-green-400 hover:bg-slate-600'
-                  }`}
+                <CollapsibleCard
+                  title="NOTAM Drafts"
+                  isActive={notamDrafts.length > 0}
+                  expanded={notamCardOpen}
+                  onToggle={() => setNotamCardOpen(o => !o)}
+                  badge={notamDrafts.length > 0 ? <span className="text-xs bg-amber-500 text-black px-2 py-0.5 rounded font-bold">{notamDrafts.length}</span> : undefined}
                 >
-                  ❄️ {snowClosed ? 'SNOW/ICE ACTIVE' : 'SNOW/ICE DE-ACTIVATED'}
-                </button>
-              ) : (
-                /* Display-only snow status for users without permission */
-                <div className={`w-full p-4 rounded-lg font-bold text-lg mb-6 ${
-                  snowClosed ? 'bg-red-600 text-white' : 'bg-slate-700 border border-green-700 text-green-400'
-                } opacity-75`}>
-                  ❄️ {snowClosed ? 'SNOW/ICE ACTIVE' : 'SNOW/ICE DE-ACTIVATED'}
-                  <span className="block text-xs font-normal mt-1 opacity-75">View only</span>
-                </div>
-              )}
-
-              {/* Snow/Ice inline confirmation */}
-              {pendingSnowActivate !== null && (
-                <div className="mb-4 bg-slate-600 border border-slate-500 rounded-lg p-3">
-                  <p className="text-sm text-white mb-2">
-                    {'This will '}
-                    <span className={pendingSnowActivate ? 'font-bold text-red-400' : 'font-bold text-green-400'}>
-                      {pendingSnowActivate ? 'ACTIVATE' : 'DE-ACTIVATE'}
-                    </span>
-                    {' Snow/Ice conditions'}
-                  </p>
-                  <input
-                    type="text"
-                    value={pendingSnowReason}
-                    onChange={e => setPendingSnowReason(e.target.value)}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter') { toggleSnowClosed(pendingSnowReason.trim() || null); setPendingSnowActivate(null); setPendingSnowReason(''); }
-                      if (e.key === 'Escape') { setPendingSnowActivate(null); setPendingSnowReason(''); }
-                    }}
-                    placeholder="Reason (optional)"
-                    className="w-full bg-slate-700 text-white text-sm px-3 py-2 rounded mb-2 border border-slate-500 focus:outline-none focus:border-blue-400"
-                    autoFocus
-                  />
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => { toggleSnowClosed(pendingSnowReason.trim() || null); setPendingSnowActivate(null); setPendingSnowReason(''); }}
-                      className="flex-1 bg-white text-slate-900 text-sm py-1.5 rounded font-semibold hover:bg-slate-100 transition-colors"
-                    >
-                      Confirm
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { setPendingSnowActivate(null); setPendingSnowReason(''); }}
-                      className="flex-1 bg-slate-700 text-slate-300 text-sm py-1.5 rounded hover:bg-slate-600 transition-colors"
-                    >
-                      Cancel
-                    </button>
+                  <div ref={notamRef}>
+                    <NOTAMDraftAssistant
+                      aerodromeIcao={aerodromeIcao}
+                      drafts={notamDrafts}
+                      onDraftDismissed={dismissNOTAMDraft}
+                      onCopyToClipboard={(_text, format) => {
+                        addNotice('info', `NOTAM draft copied (${format} format)`, 'operational');
+                      }}
+                    />
                   </div>
-                </div>
+                </CollapsibleCard>
               )}
 
-              {/* Snow/Ice Quick Actions - when active */}
-              {snowClosed && pendingSnowActivate === null && (
-                <div className="flex gap-2 mb-4">
-                  {canViewNotamDrafts && notamDrafts.some(d => d.type === 'snow-closure') && (
-                    <button
-                      type="button"
-                      onClick={openAndScrollToNOTAM}
-                      className="flex-1 text-sm bg-blue-600/20 hover:bg-blue-600/40 border border-blue-500/50 text-blue-300 px-3 py-2 rounded-lg transition-colors"
-                    >
-                      📋 Review NOTAM Draft
-                    </button>
-                  )}
-                  {canManageRunways && (
-                    <button
-                      type="button"
-                      onClick={closeAllAreasForSnow}
-                      className="flex-1 text-sm bg-red-600/20 hover:bg-red-600/40 border border-red-500/50 text-red-300 px-3 py-2 rounded-lg transition-colors"
-                    >
-                      🔒 Close All Areas
-                    </button>
-                  )}
-                </div>
-              )}
+              {/* Weather Card */}
+              <CollapsibleCard
+                title="Live Weather"
+                expanded={weatherCardOpen}
+                onToggle={() => setWeatherCardOpen(o => !o)}
+              >
+                <WeatherPanel
+                  icao={session?.user?.airport?.icaoCode || 'EGNR'}
+                  runwayHeading={40}
+                />
+              </CollapsibleCard>
 
-              {showSnowPanel && canManageSnow && (
-                <div className="bg-slate-700 p-4 rounded-lg mb-4">
-                  <h3 className="font-bold mb-3">Snow/Ice Affected Areas</h3>
-                  <p className="text-sm text-slate-400 mb-3">Select areas closed due to snow/ice:</p>
-
-                  {/* Quick Action Buttons */}
-                  <div className="flex gap-2 mb-4">
-                    <button
-                      type="button"
-                      onClick={closeAllAreasForSnow}
-                      className="flex-1 bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg font-semibold text-sm transition-colors"
-                    >
-                      ❄️ Close All Areas
-                    </button>
-                    <button
-                      type="button"
-                      onClick={clearAllSnowAreas}
-                      disabled={snowAffectedAreas.size === 0}
-                      className={`flex-1 px-3 py-2 rounded-lg font-semibold text-sm transition-colors ${
-                        snowAffectedAreas.size === 0
-                          ? 'bg-slate-600 text-slate-400 cursor-not-allowed'
-                          : 'bg-green-600 hover:bg-green-700 text-white'
-                      }`}
-                    >
-                      ✓ Clear All Areas
-                    </button>
-                  </div>
-
-                  {snowAffectedAreas.size > 0 && (
-                    <div className="bg-red-900/30 border border-red-500 rounded-lg p-2 mb-3 text-center">
-                      <span className="text-red-300 font-semibold text-sm">
-                        {snowAffectedAreas.size} area(s) currently closed
-                      </span>
-                    </div>
-                  )}
-
-                  <div className="space-y-2 max-h-64 overflow-y-auto">
-                    {/* Runways */}
-                    <div className="mb-3">
-                      <p className="text-xs font-semibold text-slate-300 mb-2">RUNWAYS</p>
-                      {airfieldStatus.runways.map(runway => (
-                        <label key={runway.id} className="flex items-center gap-2 p-2 hover:bg-slate-600 rounded cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={isSnowAffected(runway.id)}
-                            onChange={() => toggleSnowAffectedArea(runway.id)}
-                            className="w-4 h-4 cursor-pointer"
-                          />
-                          <span className={isSnowAffected(runway.id) ? 'text-red-400 font-semibold' : ''}>
-                            {runway.name}
-                          </span>
-                        </label>
-                      ))}
-                    </div>
-                    {/* Taxiways */}
-                    <div>
-                      <p className="text-xs font-semibold text-slate-300 mb-2">TAXIWAYS</p>
-                      {airfieldStatus.taxiways.map(taxiway => (
-                        <label key={taxiway.id} className="flex items-center gap-2 p-2 hover:bg-slate-600 rounded cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={isSnowAffected(taxiway.id)}
-                            onChange={() => toggleSnowAffectedArea(taxiway.id)}
-                            className="w-4 h-4 cursor-pointer"
-                          />
-                          <span className={isSnowAffected(taxiway.id) ? 'text-red-400 font-semibold' : ''}>
-                            {taxiway.id} - {taxiway.name}
-                          </span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Live Weather */}
-              <WeatherPanel
-                icao={session?.user?.airport?.icaoCode || 'EGNR'}
-                runwayHeading={40}
-              />
-
-              {/* Runway Inspection Panel */}
-              <div className="mb-4">
+              {/* Runway Inspection Card */}
+              <CollapsibleCard
+                title="Runway Inspection"
+                isActive={!!latestRunwayInspection}
+                expanded={inspectionCardOpen}
+                onToggle={() => setInspectionCardOpen(o => !o)}
+                badge={latestRunwayInspection ? <span className="text-xs bg-green-700 text-white px-2 py-0.5 rounded">Submitted</span> : undefined}
+              >
                 <RunwayInspectionPanel
                   runways={airfieldStatus.runways.map(r => ({ id: r.id, name: r.name }))}
                   latestInspection={latestRunwayInspection}
                   onSubmitInspection={handleSubmitInspection}
                 />
-              </div>
+              </CollapsibleCard>
 
-              {/* RCAM Button - requires RCAM permission */}
+              {/* RCAM Card */}
               {canManageRcam && (
-                <div className="mb-4">
+                <CollapsibleCard
+                  title="RCAM Assessment"
+                  isActive={rcamAssessments.length > 0}
+                  expanded={rcamCardOpen}
+                  onToggle={() => setRcamCardOpen(o => !o)}
+                  badge={rcamAssessments.length > 0 ? <span className="text-xs bg-amber-600 text-white px-2 py-0.5 rounded">{rcamAssessments.length}</span> : undefined}
+                >
                   <button
                     type="button"
                     onClick={() => setShowRCAM(true)}
@@ -2295,41 +2310,37 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
                     <AlertTriangle size={20} />
                     RCAM Assessment (ICAO)
                   </button>
-
-                  {/* RCAM Quick Actions - appear after submission */}
                   {rcamAssessments.length > 0 && (
                     <div className="mt-2 bg-amber-900/20 border border-amber-600/40 rounded-lg p-3">
                       <p className="text-xs text-amber-300 font-semibold mb-2">
                         ✓ RCAM: {rcamAssessments[0].runwayName} — {rcamAssessments[0].thirds.first.rwycc}/{rcamAssessments[0].thirds.second.rwycc}/{rcamAssessments[0].thirds.third.rwycc}
                       </p>
                       {canViewNotamDrafts && notamDrafts.some(d => d.type === 'runway-contamination') && (
-                        <button
-                          type="button"
-                          onClick={openAndScrollToNOTAM}
-                          className="w-full text-sm bg-blue-600/20 hover:bg-blue-600/40 border border-blue-500/50 text-blue-300 px-3 py-2 rounded-lg transition-colors"
-                        >
+                        <button type="button" onClick={openAndScrollToNOTAM} className="w-full text-sm bg-blue-600/20 hover:bg-blue-600/40 border border-blue-500/50 text-blue-300 px-3 py-2 rounded-lg transition-colors">
                           📋 Review NOTAM Draft
                         </button>
                       )}
                     </div>
                   )}
-                </div>
+                </CollapsibleCard>
               )}
 
-              {/* RFFS Category */}
-              <div className="mb-4">
-                <div className={`p-4 rounded-lg ${
-                  rffsCategory === '0' ? 'bg-red-900 border-2 border-red-500' :
-                  rffsCategory === '4' ? 'bg-amber-900 border-2 border-amber-500' :
-                  'bg-slate-700'
-                }`}>
+              {/* RFFS Category Card */}
+              <CollapsibleCard
+                title="RFFS Category"
+                isActive={rffsCategory !== '7'}
+                expanded={rffsCardOpen}
+                onToggle={() => setRffsCardOpen(o => !o)}
+                badge={
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded ${rffsCategory === '0' ? 'bg-red-600 text-white' : rffsCategory === '4' ? 'bg-amber-500 text-black' : 'bg-green-600 text-white'}`}>
+                    CAT {rffsCategory}
+                  </span>
+                }
+              >
+                <div className={`p-3 rounded-lg ${rffsCategory === '0' ? 'bg-red-900 border-2 border-red-500' : rffsCategory === '4' ? 'bg-amber-900 border-2 border-amber-500' : 'bg-slate-700'}`}>
                   <div className="flex items-center justify-between mb-2">
-                    <span className="font-semibold">RFFS Category</span>
-                    <span className={`text-2xl font-bold ${
-                      rffsCategory === '0' ? 'text-red-400' :
-                      rffsCategory === '4' ? 'text-amber-400' :
-                      'text-green-400'
-                    }`}>{rffsCategory}</span>
+                    <span className="font-semibold text-sm">Category</span>
+                    <span className={`text-2xl font-bold ${rffsCategory === '0' ? 'text-red-400' : rffsCategory === '4' ? 'text-amber-400' : 'text-green-400'}`}>{rffsCategory}</span>
                   </div>
                   <div className="grid grid-cols-3 gap-2">
                     {(['7', '4', '0'] as const).map(cat => (
@@ -2355,19 +2366,13 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
                     {rffsCategory === '0' && 'No RFFS - AERODROME CLOSED'}
                   </p>
                 </div>
-
-                {/* RFFS inline confirmation */}
                 {pendingRffsCategory !== null && (
                   <div className="mt-2 bg-slate-600 border border-slate-500 rounded-lg p-3">
                     <p className="text-sm text-white mb-2">
                       {'Change RFFS Category '}
                       <span className="font-bold">{rffsCategory}</span>
                       {' → '}
-                      <span className={
-                        pendingRffsCategory === '0' ? 'font-bold text-red-400' :
-                        pendingRffsCategory === '4' ? 'font-bold text-amber-400' :
-                        'font-bold text-green-400'
-                      }>
+                      <span className={pendingRffsCategory === '0' ? 'font-bold text-red-400' : pendingRffsCategory === '4' ? 'font-bold text-amber-400' : 'font-bold text-green-400'}>
                         {pendingRffsCategory}
                       </span>
                     </p>
@@ -2384,35 +2389,22 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
                       autoFocus
                     />
                     <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => { changeRffsCategory(pendingRffsCategory, pendingRffsReason.trim() || null); setPendingRffsCategory(null); setPendingRffsReason(''); }}
-                        className="flex-1 bg-white text-slate-900 text-sm py-1.5 rounded font-semibold hover:bg-slate-100 transition-colors"
-                      >
-                        Confirm
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => { setPendingRffsCategory(null); setPendingRffsReason(''); }}
-                        className="flex-1 bg-slate-700 text-slate-300 text-sm py-1.5 rounded hover:bg-slate-600 transition-colors"
-                      >
-                        Cancel
-                      </button>
+                      <button type="button" onClick={() => { changeRffsCategory(pendingRffsCategory, pendingRffsReason.trim() || null); setPendingRffsCategory(null); setPendingRffsReason(''); }} className="flex-1 bg-white text-slate-900 text-sm py-1.5 rounded font-semibold hover:bg-slate-100 transition-colors">Confirm</button>
+                      <button type="button" onClick={() => { setPendingRffsCategory(null); setPendingRffsReason(''); }} className="flex-1 bg-slate-700 text-slate-300 text-sm py-1.5 rounded hover:bg-slate-600 transition-colors">Cancel</button>
                     </div>
                   </div>
                 )}
-              </div>
+              </CollapsibleCard>
 
+              {/* Selected Element Panel — always visible when active */}
               {selectedElement && (
-                <div className="bg-slate-700 p-4 rounded-lg mb-4">
-                  <h3 className="font-bold mb-3">
+                <div className="bg-slate-700 p-4 rounded-lg mb-2 border border-slate-500">
+                  <h3 className="font-bold mb-3 text-sm">
                     {'name' in selectedElement ? selectedElement.name : selectedElement.description}
                   </h3>
-
                   {'status' in selectedElement && (
                     <div className="space-y-2">
                       {airfieldStatus.runways.some(r => r.id === selectedElement.id) ? (
-                        /* Runway status controls */
                         canManageRunways ? (
                           <>
                             <p className="text-sm text-slate-400">Change {selectedElement.id} Status:</p>
@@ -2479,7 +2471,6 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
                           <p className="text-xs text-slate-500 italic">You don&apos;t have permission to change runway status</p>
                         )
                       ) : (
-                        /* Taxiway status controls */
                         canManageTaxiways ? (
                           <>
                             <p className="text-sm text-slate-400">Change {selectedElement.id} Status:</p>
@@ -2546,8 +2537,6 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
                           <p className="text-xs text-slate-500 italic">You don&apos;t have permission to change taxiway status</p>
                         )
                       )}
-
-                      {/* Inline confirmation — no modal, no page shift */}
                       {pendingChange && pendingChange.elementId === selectedElement.id && (
                         <div className="mt-3 bg-slate-600 border border-slate-500 rounded-lg p-3">
                           <p className="text-sm text-white mb-2">
@@ -2555,11 +2544,7 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
                             <span className="font-semibold">{pendingChange.elementName}</span>
                             {pendingChange.scope === 'all' ? ' (all sections)' : ''}
                             {' to '}
-                            <span className={
-                              pendingChange.newStatus === 'closed' ? 'font-bold text-red-400' :
-                              pendingChange.newStatus === 'wip' ? 'font-bold text-amber-400' :
-                              'font-bold text-green-400'
-                            }>
+                            <span className={pendingChange.newStatus === 'closed' ? 'font-bold text-red-400' : pendingChange.newStatus === 'wip' ? 'font-bold text-amber-400' : 'font-bold text-green-400'}>
                               {pendingChange.newStatus.toUpperCase()}
                             </span>
                           </p>
@@ -2578,26 +2563,13 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
                             />
                           )}
                           <div className="flex gap-2">
-                            <button
-                              type="button"
-                              onClick={applyPendingChange}
-                              className="flex-1 bg-white text-slate-900 text-sm py-1.5 rounded font-semibold hover:bg-slate-100 transition-colors"
-                            >
-                              Confirm
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => { setPendingChange(null); setPendingReason(''); }}
-                              className="flex-1 bg-slate-700 text-slate-300 text-sm py-1.5 rounded hover:bg-slate-600 transition-colors"
-                            >
-                              Cancel
-                            </button>
+                            <button type="button" onClick={applyPendingChange} className="flex-1 bg-white text-slate-900 text-sm py-1.5 rounded font-semibold hover:bg-slate-100 transition-colors">Confirm</button>
+                            <button type="button" onClick={() => { setPendingChange(null); setPendingReason(''); }} className="flex-1 bg-slate-700 text-slate-300 text-sm py-1.5 rounded hover:bg-slate-600 transition-colors">Cancel</button>
                           </div>
                         </div>
                       )}
                     </div>
                   )}
-
                   {'crew' in selectedElement && (
                     <div className="mt-3 text-sm">
                       <p><strong>Crew:</strong> {selectedElement.crew}</p>
@@ -2609,38 +2581,44 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
             </>
           ) : (
             <>
-              <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+              <h2 className="text-xl font-bold mb-3 flex items-center gap-2">
                 <Eye size={24} />
                 Airfield Status
               </h2>
+              {/* RFFS status for viewer mode */}
+              <CollapsibleCard
+                title="RFFS Status"
+                isActive={rffsCategory !== '7'}
+                expanded={rffsCardOpen}
+                onToggle={() => setRffsCardOpen(o => !o)}
+                badge={
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded ${rffsCategory === '0' ? 'bg-red-600 text-white' : rffsCategory === '4' ? 'bg-amber-500 text-black' : 'bg-green-600 text-white'}`}>
+                    CAT {rffsCategory}
+                  </span>
+                }
+              >
+                <div className={`p-3 rounded-lg ${rffsCategory === '0' ? 'bg-red-900 border-2 border-red-500' : rffsCategory === '4' ? 'bg-amber-900 border-2 border-amber-500' : 'bg-slate-700 border border-green-800'}`}>
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-sm">RFFS Category</span>
+                    <span className={`text-xl font-bold ${rffsCategory === '0' ? 'text-red-400' : rffsCategory === '4' ? 'text-amber-400' : 'text-green-400'}`}>CAT {rffsCategory}</span>
+                  </div>
+                  <p className="text-xs mt-1 opacity-75">
+                    {rffsCategory === '7' && 'Full RFFS coverage'}
+                    {rffsCategory === '4' && 'Reduced RFFS coverage'}
+                    {rffsCategory === '0' && 'NO RFFS - AERODROME CLOSED'}
+                  </p>
+                </div>
+              </CollapsibleCard>
             </>
           )}
 
-          {/* RFFS Category Display */}
-          <div className={`p-3 rounded-lg mb-4 ${
-            rffsCategory === '0' ? 'bg-red-900 border-2 border-red-500' :
-            rffsCategory === '4' ? 'bg-amber-900 border-2 border-amber-500' :
-            'bg-slate-700 border border-green-800'
-          }`}>
-            <div className="flex items-center justify-between">
-              <span className="font-semibold text-sm">RFFS Category</span>
-              <span className={`text-xl font-bold ${
-                rffsCategory === '0' ? 'text-red-400' :
-                rffsCategory === '4' ? 'text-amber-400' :
-                'text-green-400'
-              }`}>CAT {rffsCategory}</span>
-            </div>
-            <p className="text-xs mt-1 opacity-75">
-              {rffsCategory === '7' && 'Full RFFS coverage'}
-              {rffsCategory === '4' && 'Reduced RFFS coverage'}
-              {rffsCategory === '0' && 'NO RFFS - AERODROME CLOSED'}
-            </p>
-          </div>
-
-          <div className="bg-slate-700 p-4 rounded-lg mb-4">
-            <h3 className="font-bold mb-3">Current Status</h3>
+          {/* Current Status Card */}
+          <CollapsibleCard
+            title="Current Status"
+            expanded={statusCardOpen}
+            onToggle={() => setStatusCardOpen(o => !o)}
+          >
             <div className="space-y-2 text-sm">
-              {/* Runways - grouped by parentId */}
               {(() => {
                 const runwayGroups = new Map<string, { name: string; status: TaxiwayStatus; sections: typeof airfieldStatus.runways }>();
                 airfieldStatus.runways.forEach(r => {
@@ -2650,24 +2628,18 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
                   }
                   const group = runwayGroups.get(groupKey)!;
                   group.sections.push(r);
-                  // If any section is not open, that takes precedence (closed > wip > open)
                   if (r.status === 'closed') group.status = 'closed';
                   else if (r.status === 'wip' && group.status !== 'closed') group.status = 'wip';
                 });
                 return Array.from(runwayGroups.entries()).map(([key, group]) => (
                   <div key={key} className="flex justify-between items-center border-b border-slate-600 pb-2">
                     <span className="font-semibold">{group.name}</span>
-                    <span className={`px-2 py-1 rounded text-xs font-bold ${
-                      group.status === 'open' ? 'bg-green-600' :
-                      group.status === 'wip' ? 'bg-amber-600' : 'bg-red-600'
-                    }`}>
+                    <span className={`px-2 py-1 rounded text-xs font-bold ${group.status === 'open' ? 'bg-green-600' : group.status === 'wip' ? 'bg-amber-600' : 'bg-red-600'}`}>
                       {group.status.toUpperCase()}
                     </span>
                   </div>
                 ));
               })()}
-
-              {/* Taxiways - grouped by parentId */}
               {(() => {
                 const taxiwayGroups = new Map<string, { name: string; status: TaxiwayStatus; sections: typeof airfieldStatus.taxiways }>();
                 airfieldStatus.taxiways.forEach(t => {
@@ -2677,12 +2649,10 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
                   }
                   const group = taxiwayGroups.get(groupKey)!;
                   group.sections.push(t);
-                  // If any section is not open, that takes precedence (closed > wip > open)
                   if (t.status === 'closed') group.status = 'closed';
                   else if (t.status === 'wip' && group.status !== 'closed') group.status = 'wip';
                 });
                 return Array.from(taxiwayGroups.entries()).map(([key, group]) => {
-                  // CP-specific terminology: 'closed' = 'ACTIVE', 'open' = 'DE-ACTIVATED'
                   let displayStatus = group.status.toUpperCase();
                   if (key === 'CP') {
                     if (group.status === 'closed') displayStatus = 'ACTIVE';
@@ -2691,10 +2661,7 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
                   return (
                     <div key={key} className="flex justify-between items-center">
                       <span>{group.name}</span>
-                      <span className={`px-2 py-1 rounded text-xs font-bold ${
-                        group.status === 'open' ? 'bg-green-600' :
-                        group.status === 'closed' ? 'bg-red-600' : 'bg-amber-600'
-                      }`}>
+                      <span className={`px-2 py-1 rounded text-xs font-bold ${group.status === 'open' ? 'bg-green-600' : group.status === 'closed' ? 'bg-red-600' : 'bg-amber-600'}`}>
                         {displayStatus}
                       </span>
                     </div>
@@ -2702,42 +2669,39 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
                 });
               })()}
             </div>
-          </div>
+          </CollapsibleCard>
 
-          <div className="flex-1 bg-slate-700 p-4 rounded-lg overflow-y-auto" style={{ maxHeight: '400px' }}>
-            {/* Active Operational Periods */}
+          {/* Notices & Audit Card */}
+          <CollapsibleCard
+            title="Notices & Audit"
+            isActive={operationalPeriods.some(p => p.status === 'active')}
+            expanded={noticesCardOpen}
+            onToggle={() => setNoticesCardOpen(o => !o)}
+            badge={notices.length > 0 ? <span className="text-xs bg-slate-600 text-slate-300 px-2 py-0.5 rounded">{notices.length}</span> : undefined}
+          >
             {operationalPeriods.filter(p => p.status === 'active').length > 0 && (
-              <div className="mb-4">
-                <h3 className="font-bold mb-3 text-yellow-400">🔴 Active Operational Periods</h3>
-                <div className="space-y-3">
+              <div className="mb-3">
+                <h3 className="font-bold mb-2 text-xs text-yellow-400 uppercase tracking-wide">🔴 Active Operational Periods</h3>
+                <div className="space-y-2">
                   {operationalPeriods.filter(p => p.status === 'active').map(period => {
                     const duration = new Date().getTime() - new Date(period.startTime).getTime();
                     const durationMins = Math.floor(duration / 60000);
                     const hours = Math.floor(durationMins / 60);
                     const mins = durationMins % 60;
                     const durationStr = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
-
                     return (
                       <div key={period.id} className="bg-yellow-900 border-2 border-yellow-500 p-3 rounded text-sm">
-                        <div className="flex justify-between items-start mb-2">
+                        <div className="flex justify-between items-start mb-1">
                           <span className="px-2 py-0.5 rounded text-xs font-bold bg-yellow-600">
                             {period.type.toUpperCase().replace(/-/g, ' ')}
                           </span>
-                          <span className="text-xs text-yellow-300">
-                            Duration: {durationStr}
-                          </span>
+                          <span className="text-xs text-yellow-300">Duration: {durationStr}</span>
                         </div>
                         <p className="font-semibold text-yellow-100 mb-1">{period.title}</p>
-                        <p className="text-xs text-yellow-200 mb-1">
-                          Started: {formatTimestampUTC(period.startTime, session?.user?.airport?.icaoCode)}
-                        </p>
-                        <p className="text-xs text-yellow-200 mb-1">
-                          {period.eventIds.length} event{period.eventIds.length !== 1 ? 's' : ''} logged
-                        </p>
+                        <p className="text-xs text-yellow-200 mb-1">Started: {formatTimestampUTC(period.startTime, session?.user?.airport?.icaoCode)}</p>
+                        <p className="text-xs text-yellow-200">{period.eventIds.length} event{period.eventIds.length !== 1 ? 's' : ''} logged</p>
                         {period.affectedAreas.length > 0 && (
-                          <p className="text-xs text-yellow-200">
-                            Affected: {period.affectedAreas.join(', ')}
-                          </p>
+                          <p className="text-xs text-yellow-200">Affected: {period.affectedAreas.join(', ')}</p>
                         )}
                       </div>
                     );
@@ -2745,33 +2709,20 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
                 </div>
               </div>
             )}
-
-            <h3 className="font-bold mb-3">Notices & Updates</h3>
             <div className="space-y-2">
               {notices.slice(0, 10).map(notice => (
                 <div key={notice.id} className="bg-slate-800 p-3 rounded text-sm">
                   <div className="flex justify-between items-start mb-1">
-                    <span className={`px-2 py-0.5 rounded text-xs font-bold ${
-                      notice.type === 'alert' ? 'bg-yellow-600' :
-                      notice.type === 'warning' ? 'bg-orange-600' : 'bg-blue-600'
-                    }`}>
+                    <span className={`px-2 py-0.5 rounded text-xs font-bold ${notice.type === 'alert' ? 'bg-yellow-600' : notice.type === 'warning' ? 'bg-orange-600' : 'bg-blue-600'}`}>
                       {notice.type.toUpperCase()}
                     </span>
                     <span className="text-xs text-slate-400">
-                      {new Date(notice.timestamp).toLocaleString('en-GB', {
-                        day: '2-digit',
-                        month: 'short',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        timeZone: 'UTC'
-                      })} UTC
+                      {new Date(notice.timestamp).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC' })} UTC
                     </span>
                   </div>
                   <p className="text-slate-200">{notice.message}</p>
                   {notice.operationalPeriodId && (
-                    <p className="text-xs text-blue-400 mt-1">
-                      📁 Part of operational period
-                    </p>
+                    <p className="text-xs text-blue-400 mt-1">📁 Part of operational period</p>
                   )}
                 </div>
               ))}
@@ -2781,7 +2732,7 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
                 </p>
               )}
             </div>
-          </div>
+          </CollapsibleCard>
         </div>
       </div>
 
