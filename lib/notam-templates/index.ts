@@ -237,7 +237,7 @@ export const NotamGenerators = {
   },
 };
 
-export default {
+const notamTemplates = {
   getNotamTemplates,
   getAbbreviation,
   formatNotam,
@@ -246,3 +246,5 @@ export default {
   getTerminology,
   NotamGenerators,
 };
+
+export default notamTemplates;
