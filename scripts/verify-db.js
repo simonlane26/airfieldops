@@ -4,7 +4,7 @@ const { Pool } = require('pg');
 async function verifyDatabase() {
   const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false }
+    ssl: { rejectUnauthorized: true, ca: process.env.DATABASE_CA_CERT || undefined }
   });
 
   try {

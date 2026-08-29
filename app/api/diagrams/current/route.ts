@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth-options';
-import { query } from '@/lib/db';
+import { tenantQuery } from '@/lib/db';
 
 // GET /api/diagrams/current - Get diagram for logged-in user's airport
 export async function GET() {
@@ -18,7 +18,9 @@ export async function GET() {
       return NextResponse.json({ error: 'No airport assigned to user' }, { status: 400 });
     }
 
-    const diagrams = await query<{
+    const ctx = { airportId, userRole: session.user.role };
+
+    const diagrams = await tenantQuery<{
       id: string;
       airport_id: string;
       background_image: string | null;
@@ -31,6 +33,7 @@ export async function GET() {
       created_at: string;
       updated_at: string;
     }>(
+      ctx,
       `SELECT d.*, a.icao_code, a.name as airport_name
        FROM airport_diagrams d
        JOIN airports a ON a.id = d.airport_id
@@ -40,7 +43,8 @@ export async function GET() {
 
     if (diagrams.length === 0) {
       // Return empty diagram structure if none exists
-      const airport = await query(
+      const airport = await tenantQuery(
+        ctx,
         'SELECT id, icao_code, name FROM airports WHERE id = $1',
         [airportId]
       );

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { AlertTriangle, Eye, Radio, Upload, History, LogOut, Shield, User, ChevronDown } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
@@ -12,6 +12,8 @@ import NoticeTimeline from './NoticeTimeline';
 import NOTAMDraftAssistant, { generateNOTAMDraft } from './NOTAMDraftAssistant';
 import { UserPermissions, DEFAULT_PERMISSIONS_BY_ROLE, UserRole } from '@/lib/types/auth';
 import WeatherPanel from './WeatherPanel';
+import RunwaySafetyMonitor from './RunwaySafetyMonitor';
+import { deriveRunwaySafetyState, type ActiveOccupancy } from '@/lib/runway-safety/deriveSafetyState';
 import { RegulatoryRegion, getRegulatoryProfile, getComplianceBanner, getNotamDisclaimer } from '@/lib/regulatory-profiles';
 
 interface AirfieldMapSimpleProps {
@@ -186,6 +188,16 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
   const [statusCardOpen, setStatusCardOpen] = useState(false);
   const [noticesCardOpen, setNoticesCardOpen] = useState(false);
 
+  // --- Runway Safety Monitor (passive awareness layer) ---
+  // Occupancies the memory-aid layer is holding. Session-scoped, like scheduledWIPs.
+  const [activeOccupancies, setActiveOccupancies] = useState<ActiveOccupancy[]>([]);
+  // Coarse tick so the derivation re-runs for time-based conditions (WIP windows, staleness).
+  const [safetyTick, setSafetyTick] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setSafetyTick(Date.now()), 15000);
+    return () => clearInterval(id);
+  }, []);
+
   // Aerodrome ICAO code - this would come from airport config in production
   const aerodromeIcao = 'EGNR'; // Hawarden
 
@@ -319,6 +331,36 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
       ]);
     }
   }, []);
+
+  // Hydrate from the server-side audit log (system of record). Merges with any
+  // local entries by timestamp+message so nothing is lost if the API is briefly
+  // unavailable; the server copy wins for shared history across devices.
+  useEffect(() => {
+    if (!session?.user?.airportId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/notices');
+        if (!res.ok || cancelled) return;
+        const { notices: serverNotices } = await res.json();
+        if (!Array.isArray(serverNotices) || cancelled) return;
+        setNotices(prev => {
+          const key = (n: Notice) => `${new Date(n.timestamp).getTime()}|${n.message}`;
+          const seen = new Set(serverNotices.map((n: Notice) => key(n)));
+          const localOnly = prev.filter(n => !seen.has(key(n)));
+          const merged = [...serverNotices, ...localOnly].sort(
+            (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+          );
+          // Re-key ids to stay unique for React
+          let seq = Date.now();
+          return merged.map(n => ({ ...n, id: typeof n.id === 'number' ? n.id : seq++ }));
+        });
+      } catch {
+        /* offline — keep localStorage view */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [session?.user?.airportId]);
 
   // Persist notices to localStorage whenever they change
   useEffect(() => {
@@ -791,7 +833,83 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
 
     const rwycc = `${inspection.conditions.first}/${inspection.conditions.second}/${inspection.conditions.third}`;
     addNotice('info', `Runway inspection completed for ${inspection.runwayName} - RWYCC: ${rwycc}`, 'safety-significant');
+
+    // A completed inspection clears any occupancy the safety monitor was holding for that runway.
+    const norm = (s: string) => s.replace(/^RWY\s*/i, '').trim().toUpperCase();
+    setActiveOccupancies(prev =>
+      prev.filter(o => {
+        if (o.kind !== 'inspection') return true;
+        const matchesId = o.runwayGroupKey === inspection.runwayId;
+        const matchesName = norm(o.runwayName) === norm(inspection.runwayName);
+        return !(matchesId || matchesName);
+      })
+    );
   };
+
+  // --- Runway Safety Monitor: occupancy memory-aid controls ---
+  const startRunwayOccupancy = (groupKey: string, runwayName: string, actor: string) => {
+    const occ: ActiveOccupancy = {
+      id: `occ-${Date.now()}`,
+      runwayGroupKey: groupKey,
+      runwayName,
+      kind: 'inspection',
+      actor: actor || undefined,
+      startedMs: Date.now(),
+    };
+    setActiveOccupancies(prev => [...prev, occ]);
+    addNotice(
+      'info',
+      `Runway occupancy recorded (safety monitor): ${runwayName} — inspection${actor ? ` · ${actor}` : ''}. Memory aid only, not a runway-status change.`,
+      'operational'
+    );
+  };
+
+  const endRunwayOccupancy = (occupancyId: string) => {
+    setActiveOccupancies(prev => {
+      const occ = prev.find(o => o.id === occupancyId);
+      if (occ) {
+        const mins = Math.max(0, Math.round((Date.now() - occ.startedMs) / 60000));
+        addNotice(
+          'info',
+          `Runway occupancy cleared (safety monitor): ${occ.runwayName} — ${occ.kind.replace('-', ' ')} ended after ${mins} min.`,
+          'operational'
+        );
+      }
+      return prev.filter(o => o.id !== occupancyId);
+    });
+  };
+
+  const safetyReport = useMemo(
+    () =>
+      deriveRunwaySafetyState({
+        nowMs: safetyTick,
+        runways: airfieldStatus.runways,
+        scheduledWIPs,
+        lowVisibility,
+        lowVisCondition,
+        snowClosed,
+        snowAffectedAreas: Array.from(snowAffectedAreas),
+        operationalPeriods,
+        latestRunwayInspection,
+        latestRCAM: rcamAssessments[0] ?? null,
+        rffsCategory,
+        activeOccupancies,
+      }),
+    [
+      safetyTick,
+      airfieldStatus.runways,
+      scheduledWIPs,
+      lowVisibility,
+      lowVisCondition,
+      snowClosed,
+      snowAffectedAreas,
+      operationalPeriods,
+      latestRunwayInspection,
+      rcamAssessments,
+      rffsCategory,
+      activeOccupancies,
+    ]
+  );
 
   const handleSubmitRCAM = (assessment: RCAMAssessment) => {
     setRcamAssessments(prev => [assessment, ...prev]);
@@ -950,6 +1068,15 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
 
       return [notice, ...prev];
     });
+
+    // Persist to the server-side append-only audit log (best-effort). The UI
+    // still functions from localStorage if this request fails; the database is
+    // the system of record for retention/compliance.
+    void fetch('/api/notices', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type, message, significance, reason }),
+    }).catch(() => {});
   };
 
   const applyPendingChange = () => {
@@ -1475,7 +1602,8 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
         <div className="flex items-center gap-2">
           <Shield size={20} className="flex-shrink-0" />
           <p className="text-sm">
-            <strong>Audit Log Integrity:</strong> All operational events and notices are immutable and append-only.
+            <strong>Audit Log Integrity:</strong> Operational events are written to a server-side append-only log
+            (no edit or delete path). Entries raised while offline are held locally and sync when the connection returns.
             {session?.user?.airport?.regulatoryProfile
               ? ` ${getComplianceBanner(session.user.airport.regulatoryProfile as RegulatoryRegion)}.`
               : ' Records are retained for a minimum of 3 years in accordance with applicable aviation regulations.'}
@@ -1516,6 +1644,33 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
             <span className={`w-2 h-2 rounded-full inline-block ${rffsCategory === '0' ? 'bg-red-400' : rffsCategory === '4' ? 'bg-amber-400' : 'bg-green-400'}`} />
             CAT {rffsCategory}
           </span>
+
+          {/* Runway Safety Monitor summary */}
+          {(() => {
+            const lvl = safetyReport.worstLevel;
+            const hasClosed = safetyReport.blocks.some(b => b.isClosed);
+            const advCount = safetyReport.advisories.length;
+            const isRed = lvl === 'check-runway' || hasClosed;
+            const cls = isRed
+              ? 'bg-red-900/40 border-red-700/50 text-red-300'
+              : lvl === 'advisory'
+              ? 'bg-amber-900/40 border-amber-700/50 text-amber-300'
+              : 'bg-green-900/40 border-green-700/50 text-green-300';
+            const dot = lvl === 'check-runway' ? 'bg-red-400 animate-pulse' : isRed ? 'bg-red-400' : lvl === 'advisory' ? 'bg-amber-400' : 'bg-green-400';
+            const label = lvl === 'check-runway'
+              ? 'RSM CHECK RWY'
+              : hasClosed
+              ? 'RSM RWY CLOSED'
+              : lvl === 'advisory'
+              ? `RSM ${advCount} ADV`
+              : 'RSM NORMAL';
+            return (
+              <span className={`flex items-center gap-1 shrink-0 px-2 py-1 rounded text-xs font-semibold border ${cls}`}>
+                <span className={`w-2 h-2 rounded-full inline-block ${dot}`} />
+                {label}
+              </span>
+            );
+          })()}
 
           {/* Taxiway status */}
           {(() => {
@@ -2157,6 +2312,16 @@ const AirfieldMapSimple = ({ session }: AirfieldMapSimpleProps) => {
                   )}
                 </div>
               )}
+
+              {/* Runway Safety Monitor — passive awareness layer over existing ops state */}
+              <RunwaySafetyMonitor
+                report={safetyReport}
+                canManage={canManageRcam || canModify}
+                activeOccupancies={activeOccupancies}
+                onStartOccupancy={startRunwayOccupancy}
+                onEndOccupancy={endRunwayOccupancy}
+                defaultActor={session?.user?.jobRole || session?.user?.name || ''}
+              />
 
               {/* Low Visibility Card */}
               <CollapsibleCard

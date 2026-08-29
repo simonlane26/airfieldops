@@ -2,17 +2,57 @@ import { compare } from 'bcryptjs';
 import { query } from './db';
 import type { User, Airport } from './types/auth';
 
+// Per-account failed-login throttle (AO-02). In-process only: correct for a
+// single instance; back this with a shared store / DB column for multi-instance.
+const MAX_FAILURES = 10;
+const FAILURE_WINDOW_MS = 15 * 60 * 1000;
+const loginFailures = new Map<string, { count: number; firstAt: number }>();
+
+// A well-formed bcrypt hash that no password matches. Compared against when the
+// account is unknown or locked so response timing does not reveal which emails
+// exist (removes the enumeration oracle that makes brute force cheaper).
+const DUMMY_HASH = '$2a$12$0000000000000000000000000000000000000000000000000000a';
+
+function isLockedOut(key: string): boolean {
+  const rec = loginFailures.get(key);
+  if (!rec) return false;
+  if (Date.now() - rec.firstAt > FAILURE_WINDOW_MS) {
+    loginFailures.delete(key);
+    return false;
+  }
+  return rec.count >= MAX_FAILURES;
+}
+
+function recordFailure(key: string): void {
+  const now = Date.now();
+  const rec = loginFailures.get(key);
+  if (!rec || now - rec.firstAt > FAILURE_WINDOW_MS) {
+    loginFailures.set(key, { count: 1, firstAt: now });
+  } else {
+    rec.count += 1;
+  }
+}
+
 export async function validateCredentials(
   email: string,
   password: string
 ): Promise<User | null> {
   try {
+    const key = email.trim().toLowerCase();
+
+    if (isLockedOut(key)) {
+      await compare(password, DUMMY_HASH); // keep timing consistent
+      return null;
+    }
+
     const users = await query<any>(
       'SELECT * FROM users WHERE email = $1 AND is_active = true',
       [email]
     );
 
     if (users.length === 0) {
+      await compare(password, DUMMY_HASH); // constant-time for unknown accounts
+      recordFailure(key);
       return null;
     }
 
@@ -20,8 +60,11 @@ export async function validateCredentials(
     const isValid = await compare(password, user.password_hash);
 
     if (!isValid) {
+      recordFailure(key);
       return null;
     }
+
+    loginFailures.delete(key); // successful auth clears the counter
 
     // Update last login
     await query(

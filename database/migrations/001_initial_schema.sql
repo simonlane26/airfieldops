@@ -178,18 +178,13 @@ CREATE POLICY tenant_isolation_runway_inspections ON runway_inspections
     OR current_setting('app.user_role', true) = 'super_admin'
   );
 
--- Insert default super admin user
--- Password: 'changeme123' (MUST be changed after first login)
--- This is a bcrypt hash of 'changeme123'
-INSERT INTO users (email, password_hash, name, role, airport_id, is_active)
-VALUES (
-  'simon@airfieldops.com',
-  '$2a$10$YQ98PkFZUJXnXJrY5xDR2.N3lEUqC5m5zp4hF9bO7qHrqL.HO7EDi',
-  'Simon',
-  'super_admin',
-  NULL,
-  true
-);
+-- The first super-admin is NOT seeded here. Seeding a fixed credential ships a
+-- known password (AO-01). Create it after migrating with:
+--
+--   ADMIN_EMAIL=you@example.com ADMIN_NAME="Your Name" \
+--   ADMIN_PASSWORD='<unique high-entropy value>' node scripts/create-admin.js
+--
+-- The script refuses weak/known passwords and hashes with bcrypt cost 12.
 
 COMMENT ON TABLE airports IS 'Tenant table - each airport is a separate tenant';
 COMMENT ON TABLE users IS 'User accounts with role-based access control';

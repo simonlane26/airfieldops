@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth-options';
-import { query } from '@/lib/db';
+import { tenantQuery, withTenantContext } from '@/lib/db';
 
 // GET /api/diagrams/[airportId] - Get diagram for an airport
 export async function GET(
@@ -22,7 +22,9 @@ export async function GET(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const diagrams = await query<{
+    const ctx = { airportId: session.user.airportId, userRole: session.user.role };
+
+    const diagrams = await tenantQuery<{
       id: string;
       airport_id: string;
       background_image: string | null;
@@ -35,6 +37,7 @@ export async function GET(
       created_at: string;
       updated_at: string;
     }>(
+      ctx,
       `SELECT * FROM airport_diagrams WHERE airport_id = $1`,
       [airportId]
     );
@@ -89,44 +92,53 @@ export async function PUT(
       label_offsets,
     } = body;
 
-    // Verify airport exists
-    const airports = await query('SELECT id FROM airports WHERE id = $1', [airportId]);
-    if (airports.length === 0) {
+    const ctx = { airportId: session.user.airportId, userRole: session.user.role };
+
+    const result = await withTenantContext(ctx, async (client) => {
+      // Verify airport exists
+      const airports = await client.query('SELECT id FROM airports WHERE id = $1', [airportId]);
+      if (airports.rows.length === 0) {
+        return null;
+      }
+
+      // Upsert diagram
+      const upsert = await client.query(
+        `INSERT INTO airport_diagrams (
+          airport_id, background_image, image_width, image_height,
+          taxiways, runways, aprons, label_offsets, created_by, updated_by
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9)
+        ON CONFLICT (airport_id) DO UPDATE SET
+          background_image = EXCLUDED.background_image,
+          image_width = EXCLUDED.image_width,
+          image_height = EXCLUDED.image_height,
+          taxiways = EXCLUDED.taxiways,
+          runways = EXCLUDED.runways,
+          aprons = EXCLUDED.aprons,
+          label_offsets = EXCLUDED.label_offsets,
+          updated_by = EXCLUDED.updated_by,
+          updated_at = NOW()
+        RETURNING *`,
+        [
+          airportId,
+          background_image || null,
+          image_width || 900,
+          image_height || 900,
+          JSON.stringify(taxiways || []),
+          JSON.stringify(runways || []),
+          JSON.stringify(aprons || []),
+          JSON.stringify(label_offsets || {}),
+          session.user.id,
+        ]
+      );
+      return upsert.rows[0];
+    });
+
+    if (result === null) {
       return NextResponse.json({ error: 'Airport not found' }, { status: 404 });
     }
 
-    // Upsert diagram
-    const result = await query(
-      `INSERT INTO airport_diagrams (
-        airport_id, background_image, image_width, image_height,
-        taxiways, runways, aprons, label_offsets, created_by, updated_by
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9)
-      ON CONFLICT (airport_id) DO UPDATE SET
-        background_image = EXCLUDED.background_image,
-        image_width = EXCLUDED.image_width,
-        image_height = EXCLUDED.image_height,
-        taxiways = EXCLUDED.taxiways,
-        runways = EXCLUDED.runways,
-        aprons = EXCLUDED.aprons,
-        label_offsets = EXCLUDED.label_offsets,
-        updated_by = EXCLUDED.updated_by,
-        updated_at = NOW()
-      RETURNING *`,
-      [
-        airportId,
-        background_image || null,
-        image_width || 900,
-        image_height || 900,
-        JSON.stringify(taxiways || []),
-        JSON.stringify(runways || []),
-        JSON.stringify(aprons || []),
-        JSON.stringify(label_offsets || {}),
-        session.user.id,
-      ]
-    );
-
-    return NextResponse.json(result[0]);
+    return NextResponse.json(result);
   } catch (error) {
     console.error('Error saving diagram:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
